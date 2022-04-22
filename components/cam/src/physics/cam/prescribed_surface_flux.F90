@@ -41,24 +41,17 @@ module prescribed_sfc_flux
 
   private
  
-!++BEH
    ! Need to have multiple fields read in:
    ! shf, cflx, lhf, lwup, asdir, aldir, asdif, aldif
    integer          , parameter :: nflds              = 8
-!   character(len=16), parameter :: sflx_name(nflds)   = (/'shf_in', 'cflx_in', 'lhf_in', 'lwup_in', 'asdir_in', 'aldir_in', 'asdif_in', 'aldif_in' /)
    character(len=16), parameter :: sflx_name(nflds)   = (/ 'SHFLX', 'QFLX', 'LHFLX', 'FLUS', 'ASDIR', 'ALDIR', 'ASDIF', 'ALDIF' /)
    character(len=16), parameter :: sflx_pname(nflds)  = (/ 'p_SHFLX', 'p_QFLX', 'p_LHFLX', 'p_FLUS', 'p_ASDIR', 'p_ALDIR', 'p_ASDIF', 'p_ALDIF' /)
    logical, parameter           :: sflx_dtimes(nflds) = (/ .false., .false., .false., .true., .true., .true., .true., .true. /)
    character(len=256)           :: filename           = ' '
-   character(len=256)           :: filelist           = ' '
    character(len=256)           :: datapath           = ' '
    character(len=32)            :: data_type          = 'CYCLICAL'
    real(r8)                     :: num_file_years     = 0._r8
    real(r8)                     :: input_dtime        = 0._r8
-   logical                      :: rmv_file           = .false.
-   integer                      :: cycle_yr           = 0
-   integer                      :: fixed_ymd          = 0
-   integer                      :: fixed_tod          = 0
  
    logical, parameter           :: horz_native        = .true. ! they will all have the same behavior if they
                                                                ! all come from the same file
@@ -67,12 +60,15 @@ module prescribed_sfc_flux
    character(len=16)            :: spc_name_list(nflds)
    character(len=cl)            :: spc_flist(nflds), spc_fnames(nflds)
    character(len=8)             :: dim1name, dim2name
-   character(len=24)            :: air_type           = 'CYCLICAL_LIST' ! 'CYCLICAL_LIST'
-!--BEH
+   character(len=24)            :: air_type           = 'CYCLICAL_LIST'
 
 !--------------------------------------------------------------------------------------------------
 type :: presc_sfc_flux_type          
-!++BEH
+! BEH -- There is a bug in infld that requires temporally varying input data
+!        to have both a horizontal and vertical dimension
+!        The following is a work around until a fix can be made to infld
+!        I will use "!B3" to denote the lines of code that should be traded
+!        in for those being used currently after the fix is made.
    !(pcols,begchunk:endchunk,2)
 !B3   real(r8), pointer, dimension(:,:,:) :: native_grid_flds_tslices
    real(r8), pointer, dimension(:,:,:,:) :: native_grid_flds_tslices
@@ -82,7 +78,6 @@ type :: presc_sfc_flux_type
    !(pcols,begchunk:endchunk)
 !B3   real(r8), pointer, dimension(:,:)   :: native_grid_flds
    real(r8), pointer, dimension(:,:,:)   :: native_grid_flds
-!--BEH
 
    !Forcing file name
    character(len=cl) :: input_file  
@@ -124,38 +119,23 @@ subroutine presc_sfc_flux_readnl(nlfile)
    character(len=*), parameter :: subname = 'presc_sfc_flux_readnl'
 
    character(len=256) :: presc_sfc_flux_file
-   character(len=256) :: presc_sfc_flux_filelist
    character(len=256) :: presc_sfc_flux_datapath
    character(len=32)  :: presc_sfc_flux_type
-   logical            :: presc_sfc_flux_rmfile
-   integer            :: presc_sfc_flux_cycle_yr
-   integer            :: presc_sfc_flux_fixed_ymd
-   integer            :: presc_sfc_flux_fixed_tod
    real(r8)           :: presc_sfc_flux_num_file_years
    real(r8)           :: presc_sfc_flux_input_dtime
 
    namelist /presc_sfc_flux_nl/ &
       presc_sfc_flux_file,      &
-      presc_sfc_flux_filelist,  &
       presc_sfc_flux_datapath,  &
       presc_sfc_flux_type,      &
-      presc_sfc_flux_rmfile,    &
-      presc_sfc_flux_cycle_yr,  &
-      presc_sfc_flux_fixed_ymd, &
-      presc_sfc_flux_fixed_tod, &
       presc_sfc_flux_num_file_years, &
       presc_sfc_flux_input_dtime
    !-----------------------------------------------------------------------------
 
    ! Initialize namelist variables from local module variables.
    presc_sfc_flux_file      = filename
-   presc_sfc_flux_filelist  = filelist
    presc_sfc_flux_datapath  = datapath
    presc_sfc_flux_type      = data_type
-   presc_sfc_flux_rmfile    = rmv_file
-   presc_sfc_flux_cycle_yr  = cycle_yr
-   presc_sfc_flux_fixed_ymd = fixed_ymd
-   presc_sfc_flux_fixed_tod = fixed_tod
    presc_sfc_flux_num_file_years = num_file_years
    presc_sfc_flux_input_dtime    = input_dtime
 
@@ -177,26 +157,16 @@ subroutine presc_sfc_flux_readnl(nlfile)
 #ifdef SPMD
    ! Broadcast namelist variables
    call mpibcast(presc_sfc_flux_file,     len(presc_sfc_flux_file),     mpichar, 0, mpicom)
-   call mpibcast(presc_sfc_flux_filelist, len(presc_sfc_flux_filelist), mpichar, 0, mpicom)
    call mpibcast(presc_sfc_flux_datapath, len(presc_sfc_flux_datapath), mpichar, 0, mpicom)
    call mpibcast(presc_sfc_flux_type,     len(presc_sfc_flux_type),     mpichar, 0, mpicom)
-   call mpibcast(presc_sfc_flux_rmfile,   1, mpilog,  0, mpicom)
-   call mpibcast(presc_sfc_flux_cycle_yr, 1, mpiint,  0, mpicom)
-   call mpibcast(presc_sfc_flux_fixed_ymd,1, mpiint,  0, mpicom)
-   call mpibcast(presc_sfc_flux_fixed_tod,1, mpiint,  0, mpicom)
    call mpibcast(presc_sfc_flux_num_file_years, 1, mpir8, 0, mpicom)
    call mpibcast(presc_sfc_flux_input_dtime,    1, mpir8, 0, mpicom)
 #endif
 
    ! Update module variables with user settings.
    filename   = presc_sfc_flux_file
-   filelist   = presc_sfc_flux_filelist
    datapath   = presc_sfc_flux_datapath
    data_type  = presc_sfc_flux_type
-   rmv_file   = presc_sfc_flux_rmfile
-   cycle_yr   = presc_sfc_flux_cycle_yr
-   fixed_ymd  = presc_sfc_flux_fixed_ymd
-   fixed_tod  = presc_sfc_flux_fixed_tod
    num_file_years = presc_sfc_flux_num_file_years
    input_dtime    = presc_sfc_flux_input_dtime
 
@@ -216,7 +186,6 @@ subroutine presc_sfc_flux_register()
 
    if (has_presc_sfc_flux) then
       do i = 1,nflds
-!         call pbuf_add_field(sflx_name(i), 'physpkg', dtype_r8, (/pcols/), idx)
 !B3         call pbuf_add_field(sflx_pname(i), 'physpkg', dtype_r8, (/pcols/), idx)
          call pbuf_add_field(sflx_pname(i), 'physpkg', dtype_r8, (/pcols,pver/), idx)
       enddo
@@ -250,7 +219,6 @@ subroutine presc_sfc_flux_init()
    implicit none
 
    ! Local variables
-!++BEH
    type(file_desc_t)  :: fh
    character(len=16)  :: spc_name
    character(len=16)  :: spc_pname
@@ -259,7 +227,6 @@ subroutine presc_sfc_flux_init()
    integer            :: ndx, istat, i, astat, m, n, mm, c
    integer            :: dimbndid, nbnd, var_id, errcode
    logical            :: fixed, cyclical
-!--BEH
    integer            :: grid_id, dim1len, dim2len, dim1id, dim2id ! netcdf file ids and sizes
    integer            :: hdim1_d, hdim2_d    ! model grid size
    real(r8)           :: dtime
@@ -268,7 +235,6 @@ subroutine presc_sfc_flux_init()
 !B3--B3
    !----------------------------------------------------------------------------
 
-!++BEH
    if ( has_presc_sfc_flux ) then
       if ( masterproc ) then
          write(iulog,*) 'Prescribed surface fluxes are in: '//trim(filename)
@@ -282,7 +248,6 @@ subroutine presc_sfc_flux_init()
          write(iulog,*) 'Overwriting flux: '//trim(sflx_name(i))
       endif
    end do
-!--BEH
 
    if (.not. dimnames_set) then
       grid_id = cam_grid_id('physgrid')
@@ -295,14 +260,6 @@ subroutine presc_sfc_flux_init()
       call cam_grid_get_dim_names(grid_id, dim1name, dim2name) 
       dimnames_set = .true.
    end if
-
-!++BEH -- don't need this anymore.  natgrid_sfc_flux_in will always be nflds in dimension, so specify above.
-!   allocate( natgrid_sfc_flux_in(nflds), stat=astat )
-!   if( astat /= 0 ) then 
-!      write(err_str,*) 'failed to allocate natgrid_sfc_flux_in array; error = ',astat,',',errmsg(__FILE__, __LINE__)
-!      call endrun(err_str)
-!   end if
-!--BEH
 
    flux_loop : do m = 1,nflds
       spc_name  = trim(sflx_name(m))
@@ -323,8 +280,6 @@ subroutine presc_sfc_flux_init()
          fixed = .true.
       case( 'CYCLICAL' )
          cyclical = .true.
-         !file%cyc_yr = data_cycle_yr
-         ! BEH - should I be setting num_file_years for this?
       case( 'SERIAL' )
          ! Do nothing
       case default 
@@ -341,9 +296,7 @@ subroutine presc_sfc_flux_init()
 
       ! dtime is the offset time between the model and file.  Modify if not synchronized properly.
       if (sflx_dtimes(m)) then
-!         dtime = (1.0_r8 / 24._r8) ! Read from the previous time step (hour) for dtime
          dtime = input_dtime / 86400. ! This is the timestep length for the input data converted from seconds to days
-         !BEH -- should 86400 be converted to some named constant?
       else
          dtime = 0.0_r8
       end if
@@ -428,7 +381,6 @@ subroutine presc_sfc_flux_init()
 !B3--B3
           
           !get units of the data in the forcing file
-!BEH === do I need units for these things?  Looks like all the vars have the units attribute
       if(pio_inq_varid( fh, spc_name, var_id ) == pio_noerr ) then
          if(pio_get_att( fh, var_id, 'units', natgrid_sfc_flux_in(m)%units) .ne. pio_noerr ) then
             write(err_str,*)'failed to obtain units of variable ',trim(spc_name),' in &
@@ -478,13 +430,10 @@ subroutine presc_sfc_flux_init()
     !------------------------------------------------------------------
     !       Initialize the aircraft file processing
     !------------------------------------------------------------------
-!++BEH
-!    do m=1,aircraft_cnt
+
     do m=1,nflds
-!--BEH
 
        number_flds = 0
-!       if(horz_native(index_map(m))) then
        if (associated(natgrid_sfc_flux_in(m)%native_grid_flds_tslices)) &
             number_flds = 1
        !read the forcing file once to initialize variable including time cordinate
@@ -535,10 +484,9 @@ subroutine presc_sfc_flux_adv(state, pbuf2d)
    !------------------------------------------------------------------
    ! Return if no surface flux file
    !------------------------------------------------------------------
-!++BEH
-!    if (aircraft_cnt == 0 ) return
+
     if( .not. has_presc_sfc_flux ) return
-!--BEH
+
     call t_startf('All_prescribed_surface_fluxes')
 
     !-------------------------------------------------------------------
@@ -681,11 +629,12 @@ subroutine advance_native_grid_data( native_grid_strct )
             native_grid_strct%native_grid_flds_tslices(:,:,:,1))
     endif
 
-!++BEH a test for zeros, write out useful stuff
+    ! Quick error check
+!B3    if ( all(native_grid_strct%native_grid_flds(:,:) .eq. 0.0_r8) ) then
+!B3       call endrun(trim(spc_name) // ' is all zeros.  Oh no!'//errmsg(__FILE__,__LINE__))
     if ( all(native_grid_strct%native_grid_flds(:,:,:) .eq. 0.0_r8) ) then
        call endrun(trim(spc_name) // ' is all zeros.  Oh no!'//errmsg(__FILE__,__LINE__))
     endif
-!--BEH
     
 end subroutine advance_native_grid_data
 
@@ -711,10 +660,8 @@ subroutine presc_sfc_flux_overwrite( cam_in, pbuf2d )
 
 ! BEH Add in some nudging options
     logical, parameter  :: nudge_turbulent_fluxes = .true.
-!    real(r8), parameter :: nts = 3600._r8
     real(r8), parameter :: nts = 2._r8
     real(r8)            :: factor
-! BEH NEED TO INCLUDE MODEL TIMESTEP IN FACTOR
 
     if ( .not. has_presc_sfc_flux ) return
 
@@ -739,14 +686,12 @@ subroutine presc_sfc_flux_overwrite( cam_in, pbuf2d )
        call pbuf_get_field(pbuf_chnk, index_asdif, asdif)
        call pbuf_get_field(pbuf_chnk, index_aldif, aldif)
 
-!    do c=begchunk,endchunk
        ncol = get_ncols_p(c)
 
        if (nudge_turbulent_fluxes) then
-          factor = 1._r8 / nts !BEH: THIS IS WRONG.  IT SHOULD BE MODEL TIMESTEP / NUDGING TIME SCALE
-!          factor = 0.95_r8
-!          factor = 0.999_r8
-!          factor = 0.1_r8
+!BEH: This factor was chosen in an ad hoc fashion of testing for whether the model would crash and if 
+!     the results looked OK.  If this method is to be used more, finding a better method is recommended
+          factor = 1._r8 / nts 
           cam_in(c)%shf(:ncol)    = cam_in(c)%shf(:ncol)    + factor * (shf(:ncol)  - cam_in(c)%shf(:ncol))
           cam_in(c)%cflx(:ncol,1) = cam_in(c)%cflx(:ncol,1) + factor * (cflx(:ncol) - cam_in(c)%cflx(:ncol,1))
           cam_in(c)%lhf(:ncol)    = cam_in(c)%lhf(:ncol)    + factor * (lhf(:ncol)  - cam_in(c)%lhf(:ncol))
@@ -760,14 +705,6 @@ subroutine presc_sfc_flux_overwrite( cam_in, pbuf2d )
        cam_in(c)%aldir(:ncol)  = aldir(:ncol)
        cam_in(c)%asdif(:ncol)  = asdif(:ncol)
        cam_in(c)%aldif(:ncol)  = aldif(:ncol)
-!!       cam_in(c)%shf(:ncol)    = natgrid_sfc_flux_in(1)%native_grid_flds(:ncol, c)
-!!       cam_in(c)%cflx(:ncol,1) = natgrid_sfc_flux_in(2)%native_grid_flds(:ncol, c)
-!!       cam_in(c)%lhf(:ncol)    = natgrid_sfc_flux_in(3)%native_grid_flds(:ncol, c)
-!!       cam_in(c)%lwup(:ncol)   = natgrid_sfc_flux_in(4)%native_grid_flds(:ncol, c)
-!!       cam_in(c)%asdir(:ncol)  = natgrid_sfc_flux_in(5)%native_grid_flds(:ncol, c)
-!!       cam_in(c)%aldir(:ncol)  = natgrid_sfc_flux_in(6)%native_grid_flds(:ncol, c)
-!!       cam_in(c)%asdif(:ncol)  = natgrid_sfc_flux_in(7)%native_grid_flds(:ncol, c)
-!!       cam_in(c)%aldif(:ncol)  = natgrid_sfc_flux_in(8)%native_grid_flds(:ncol, c)
 
        if (masterproc) then
           write(iulog,*) 'PRESC_SFC_FLUX   maxval(shf),   minval(shf): ', &
@@ -783,35 +720,12 @@ subroutine presc_sfc_flux_overwrite( cam_in, pbuf2d )
                maxval(cam_in(c)%asdir), minval(cam_in(c)%asdir)
        endif
 
-       !++BEH a test for zeros, write out useful stuff
+       !BEH a quick check of shf field
        if ( all(cam_in(c)%shf .eq. 0.0_r8) ) then
           call endrun('cam_in SHF is all zeros.  Oh no!'//errmsg(__FILE__,__LINE__))
        endif
-       !--BEH
 
     end do
-
-!    if (masterproc) then
-!!       write(iulog,*) 'PRESC_SFC_FLUX   maxval(shf),   minval(shf): ', &
-!!                       maxval(cam_in(c)%shf),   minval(cam_in(c)%shf)
-!       write(iulog,*) 'PRESC_SFC_FLUX   maxval(shf),   minval(shf): ', &
-!                       maxval(cam_in(c)%shf),   minval(cam_in(c)%shf)
-!!       write(iulog,*) 'PRESC_SFC_FLUX   maxval(shf2),   minval(shf2): ', &
-!!                       maxval(shf(:ncol)),   &
-!!                       minval(shf(:ncol))
-!       write(iulog,*) 'PRESC_SFC_FLUX   maxval(shf2),   minval(shf2): ', &
-!                       maxval(shf(:)),   &
-!                       minval(shf(:))
-!       write(iulog,*) 'PRESC_SFC_FLUX   maxval(lhf),   minval(lhf): ', &
-!                       maxval(cam_in(c)%lhf),   minval(cam_in(c)%lhf)
-!       write(iulog,*) 'PRESC_SFC_FLUX   maxval(lwup),  minval(lwup): ', &
-!                       maxval(cam_in(c)%lwup),  minval(cam_in(c)%lwup)
-!       write(iulog,*) 'PRESC_SFC_FLUX   maxval(asdir), minval(asdir): ', &
-!                       maxval(cam_in(c)%asdir), minval(cam_in(c)%asdir)
-!    endif
-
-
-
     
 
 end subroutine presc_sfc_flux_overwrite
