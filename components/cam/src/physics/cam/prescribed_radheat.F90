@@ -42,7 +42,6 @@ module prescribed_radheat
 
   private
  
-!++BEH
    ! Need to have multiple fields read in:
    ! shf, cflx, lhf, lwup, asdir, aldir, asdif, aldif
    integer          , parameter :: nflds              = 6
@@ -63,11 +62,15 @@ module prescribed_radheat
    character(len=cl)            :: spc_flist(nflds), spc_fnames(nflds)
    character(len=8)             :: dim1name, dim2name
    character(len=24)            :: air_type           = 'CYCLICAL_LIST' ! 'CYCLICAL_LIST'
-!--BEH
 
 !--------------------------------------------------------------------------------------------------
-type :: presc_radheat_type          
-!++BEH
+type :: presc_radheat_type
+
+! BEH -- There is a bug in infld that requires temporally varying input data
+!        to have both a horizontal and vertical dimension
+!        The following is a work around until a fix can be made to infld
+!        I will use "!B3" to denote the lines of code that should be traded
+!        in for those being used currently after the fix is made.
    !(pcols,begchunk:endchunk,2)
 !B3   real(r8), pointer, dimension(:,:,:) :: native_grid_flds_tslices
    real(r8), pointer, dimension(:,:,:,:) :: native_grid_flds_tslices
@@ -77,7 +80,7 @@ type :: presc_radheat_type
    !(pcols,begchunk:endchunk)
 !B3   real(r8), pointer, dimension(:,:)   :: native_grid_flds
    real(r8), pointer, dimension(:,:,:)   :: native_grid_flds
-!--BEH
+
 
    !Forcing file name
    character(len=cl) :: input_file  
@@ -219,16 +222,13 @@ subroutine presc_radheat_init()
    implicit none
 
    ! Local variables
-!++BEH
    type(file_desc_t)  :: fh
    character(len=16)  :: spc_name
    character(len=16)  :: spc_pname
-   character(len=cxx) :: err_str
-    
+   character(len=cxx) :: err_str    
    integer            :: ndx, istat, i, astat, m, n, mm, c
    integer            :: dimbndid, nbnd, var_id, errcode
    logical            :: fixed, cyclical
-!--BEH
    integer            :: grid_id, dim1len, dim2len, dim1id, dim2id ! netcdf file ids and sizes
    integer            :: hdim1_d, hdim2_d    ! model grid size
    real(r8)           :: dtime
@@ -237,7 +237,6 @@ subroutine presc_radheat_init()
 !B3--B3
    !----------------------------------------------------------------------------
 
-!++BEH
    if ( has_presc_radheat ) then
       if ( masterproc ) then
          write(iulog,*) 'Prescribed radiative fluxes are in: '//trim(filename)
@@ -251,7 +250,6 @@ subroutine presc_radheat_init()
          write(iulog,*) 'Overwriting flux: '//trim(rflx_name(i))
       endif
    end do
-!--BEH
 
    if (.not. dimnames_set) then
       grid_id = cam_grid_id('physgrid')
@@ -300,9 +298,7 @@ subroutine presc_radheat_init()
 
       ! dtime is the offset time between the model and file.  Modify if not synchronized properly.
       if (rflx_dtimes(m)) then
-!         dtime = (1.0_r8 / 24._r8) ! Read from the previous time step (hour) for dtime
          dtime = input_dtime / 86400. ! This is the timestep length for the input data converted from seconds to days
-         !BEH -- should 86400 be converted to some named constant?
       else
          dtime = 0.0_r8
       end if
@@ -387,7 +383,6 @@ subroutine presc_radheat_init()
 !B3--B3
           
           !get units of the data in the forcing file
-!BEH === do I need units for these things?  Looks like all the vars have the units attribute
       if(pio_inq_varid( fh, spc_name, var_id ) == pio_noerr ) then
          if(pio_get_att( fh, var_id, 'units', natgrid_radheat_in(m)%units) .ne. pio_noerr ) then
             write(err_str,*)'failed to obtain units of variable ',trim(spc_name),' in &
@@ -428,17 +423,14 @@ subroutine presc_radheat_init()
          call endrun(err_str)
       endif
 
-!Bx      call addfld( 'INFLX_'//trim(spc_name), horiz_only, 'A',  'W/m2',     &
-!Bx            'Input flux for '//trim(spc_name) )
-
       if (trim(spc_name) == 'QRL' .OR. trim(spc_name) == 'QRS') then
          call addfld( 'INFLX_'//trim(spc_name), (/ 'lev' /), 'A',  'W/m2',     &
               'Input flux for '//trim(spc_name) )
       else
          call addfld( 'INFLX_'//trim(spc_name), (/ 'lev' /), 'A',  'W/m2',     &
               'Input flux for '//trim(spc_name) )
-!Bx         call addfld( 'INFLX_'//trim(spc_name), horiz_only, 'A',  'W/m2',     &
-!Bx              'Input flux for '//trim(spc_name) )
+!B3         call addfld( 'INFLX_'//trim(spc_name), horiz_only, 'A',  'W/m2',     &
+!B3              'Input flux for '//trim(spc_name) )
       endif
 
    end do flux_loop
@@ -447,13 +439,10 @@ subroutine presc_radheat_init()
     !------------------------------------------------------------------
     !       Initialize the radiative file processing
     !------------------------------------------------------------------
-!++BEH
-!    do m=1,aircraft_cnt
+
     do m=1,nflds
-!--BEH
 
        number_flds = 0
-!       if(horz_native(index_map(m))) then
        if (associated(natgrid_radheat_in(m)%native_grid_flds_tslices)) &
             number_flds = 1
        !read the forcing file once to initialize variable including time cordinate
@@ -504,10 +493,9 @@ subroutine presc_radheat_adv(state, pbuf2d)
    !------------------------------------------------------------------
    ! Return if no radiative flux file
    !------------------------------------------------------------------
-!++BEH
-!    if (aircraft_cnt == 0 ) return
+
     if( .not. has_presc_radheat ) return
-!--BEH
+
     call t_startf('All_prescribed_radiative_fluxes')
 
     !-------------------------------------------------------------------
@@ -524,11 +512,6 @@ subroutine presc_radheat_adv(state, pbuf2d)
        !vertical interpolation is done in the next call
        call advance_native_grid_data( natgrid_radheat_in(m) )
 
-       !BEH -- call subroutine to conserve radiant energy
-       !BEH -- No, don't do this here.  Need all of the variables already read in
-       !       This is still part of the variable loop.
-       !call conserve_radiant_energy(state, pbuf_ndx, native_grid_frc_air(m), pbuf2d)
-
        !$OMP PARALLEL DO PRIVATE (C, NCOL, TMPPTR_NATIVE_GRID, PBUF_CHNK)
        do c = begchunk, endchunk
           ncol = state(c)%ncol
@@ -537,14 +520,6 @@ subroutine presc_radheat_adv(state, pbuf2d)
 !B3          tmpptr_native_grid(:ncol) = natgrid_radheat_in(m)%native_grid_flds(:,c)
           tmpptr_native_grid(:ncol,:) = natgrid_radheat_in(m)%native_grid_flds(:,:,c)
 
-!B3          call outfld( 'INFLX_'//trim(spc_name), tmpptr_native_grid(:ncol), &
-!B3                       ncol, state(c)%lchnk )
-!Bx          call outfld( 'INFLX_'//trim(spc_name), tmpptr_native_grid(:ncol, natgrid_radheat_in(m)%lev_frc), &
-!Bx                       ncol, state(c)%lchnk )
-!Bx          if (trim(spc_name) .NE. 'QRL' .AND. trim(spc_name) .NE. 'QRS') then
-!Bx             call outfld( 'INFLX_'//trim(spc_name), tmpptr_native_grid(:ncol, natgrid_radheat_in(m)%lev_frc), &
-!Bx                          ncol, state(c)%lchnk )
-!Bx          endif
        enddo
 
     enddo
@@ -659,11 +634,9 @@ subroutine advance_native_grid_data( native_grid_strct )
             native_grid_strct%native_grid_flds_tslices(:,:,:,1))
     endif
 
-!++BEH a test for zeros, write out useful stuff
     if ( all(native_grid_strct%native_grid_flds(:,:,:) .eq. 0.0_r8) ) then
        call endrun(trim(spc_name) // ' is all zeros.  Oh no!'//errmsg(__FILE__,__LINE__))
     endif
-!--BEH
     
 end subroutine advance_native_grid_data
 
@@ -689,8 +662,6 @@ end subroutine advance_native_grid_data
 
 
     !args
-!    type(physics_state), intent(in)        :: state(begchunk:endchunk)
-!    type(physics_buffer_desc), pointer     :: pbuf2d(:,:)
     type(physics_state), intent(in   ), dimension(begchunk:endchunk) :: state
     type(physics_buffer_desc),    pointer    :: pbuf2d(:,:)
 
@@ -707,8 +678,8 @@ end subroutine advance_native_grid_data
     integer  :: index_qrs, index_qrl
     integer  :: index_fsnt, index_flnt, index_fsns, index_flns
 
-!Bx    real(r8), pointer, dimension(:,:) :: qrs, qrl
-!Bx    real(r8), pointer, dimension(:)   :: fsnt, flnt, fsns, flns
+!B3    real(r8), pointer, dimension(:,:) :: qrs, qrl
+!B3    real(r8), pointer, dimension(:)   :: fsnt, flnt, fsns, flns
     real(r8), pointer, dimension(:,:) :: qrs, qrl, fsnt, flnt, fsns, flns
 
     ! Read in the prescribed radiative fluxes from pbuf
@@ -751,8 +722,8 @@ end subroutine advance_native_grid_data
           lw_ratio  = 0._r8
 
           ! For each column do the scaling
-!Bx          sw_net = fsnt(icol) - fsns(icol)
-!Bx          lw_net = flns(icol) - flnt(icol)
+!B3          sw_net = fsnt(icol) - fsns(icol)
+!B3          lw_net = flns(icol) - flnt(icol)
           sw_net = fsnt(icol,1) - fsns(icol,1)
           lw_net = flns(icol,1) - flnt(icol,1)
           do kver = 1, pver

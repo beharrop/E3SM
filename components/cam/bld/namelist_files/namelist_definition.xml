@@ -5033,49 +5033,12 @@ by <varname>prescribed_cloud_datapath</varname>.
 Default: None, do not prescribe clouds by default.
 </entry>
 
-<entry id="prescribed_cloud_name" type="char*16" category="cam_chem"
-       group="prescribed_cloud_nl" valid_values="" >
-Name of variable containing cloud data in the prescribed cloud datasets.
-Default: 'cloud'
-</entry>
-
-<entry id="prescribed_cloud_rmfile" type="logical" category="cam_chem"
-       group="prescribed_cloud_nl" valid_values="" >
-Remove the file containing prescribed cloud concentrations from local disk when
-no longer needed.
-Default: FALSE
-</entry>
-
 <entry id="prescribed_cloud_type" type="char*32" category="cam_chem"
        group="prescribed_cloud_nl"
        valid_values="CYCLICAL,SERIAL,INTERP_MISSING_MONTHS,FIXED" >
 Type of time interpolation for data in prescribed_cloud files.
 Can be set to 'CYCLICAL', 'SERIAL', 'INTERP_MISSING_MONTHS', or 'FIXED'.
 Default: 'SERIAL'
-</entry>
-
-<entry id="prescribed_cloud_cycle_yr" type="integer" category="cam_chem"
-       group="prescribed_cloud_nl" valid_values="" >
-The cycle year of the prescribed cloud data
-if <varname>prescribed_cloud_type</varname>  is 'CYCLICAL'.
-Format: YYYY
-Default: 0
-</entry>
-
-<entry id="prescribed_cloud_fixed_ymd" type="integer" category="cam_chem"
-       group="prescribed_cloud_nl" valid_values="" >
-The date at which the prescribed cloud data is fixed
-if <varname>prescribed_cloud_type</varname> is 'FIXED'.
-Format: YYYYMMDD
-Default: 0
-</entry>
-
-<entry id="prescribed_cloud_fixed_tod" type="integer" category="cam_chem"
-       group="prescribed_cloud_nl" valid_values="" >
-The time of day (seconds) corresponding to <varname>prescribed_cloud_fixed_ymd</varname>
-at which the prescribed cloud data is fixed
-if <varname>prescribed_cloud_type</varname> is 'FIXED'.
-Default: 0 seconds
 </entry>
 
 <entry id="prescribed_cloud_num_file_years" type="real" category="cam_chem"
@@ -5101,45 +5064,12 @@ Filename of dataset for prescribed surface fluxes.
 Default: None, do not prescribe surface fluxes by default.
 </entry>
 
-<entry id="presc_sfc_flux_filelist" type="char*256"
-       input_pathname="rel:presc_sfc_flux_datapath" category="cam_chem"
-       group="presc_sfc_flux_nl" valid_values="" >
-Filename of file that contains a sequence of filenames for prescribed
-surface fluxes.  The filenames in this file are relative to the directory 
-specified by <varname>presc_sfc_flux_datapath</varname>.
-Default: None, do not prescribe surface fluxes by default.
-</entry>
-
 <entry id="presc_sfc_flux_type" type="char*32" category="cam_chem"
        group="presc_sfc_flux_nl"
        valid_values="CYCLICAL,SERIAL,INTERP_MISSING_MONTHS,FIXED" >
 Type of time interpolation for data in prescribed_sfc flux files.
 Can be set to 'CYCLICAL', 'SERIAL', 'INTERP_MISSING_MONTHS', or 'FIXED'.
 Default: 'SERIAL'
-</entry>
-
-<entry id="presc_sfc_flux_cycle_yr" type="integer" category="cam_chem"
-       group="presc_sfc_flux_nl" valid_values="" >
-The cycle year of the prescribed sfc flux data
-if <varname>presc_sfc_flux_type</varname>  is 'CYCLICAL'.
-Format: YYYY
-Default: 0
-</entry>
-
-<entry id="presc_sfc_flux_fixed_ymd" type="integer" category="cam_chem"
-       group="presc_sfc_flux_nl" valid_values="" >
-The date at which the prescribed sfc flux data is fixed
-if <varname>presc_sfc_flux_type</varname> is 'FIXED'.
-Format: YYYYMMDD
-Default: 0
-</entry>
-
-<entry id="presc_sfc_flux_fixed_tod" type="integer" category="cam_chem"
-       group="presc_sfc_flux_nl" valid_values="" >
-The time of day (seconds) corresponding to <varname>presc_sfc_flux_fixed_ymd</varname>
-at which the prescribed sfc flux data is fixed
-if <varname>presc_sfc_flux_type</varname> is 'FIXED'.
-Default: 0 seconds
 </entry>
 
 <entry id="presc_sfc_flux_num_file_years" type="real" category="cam_chem"

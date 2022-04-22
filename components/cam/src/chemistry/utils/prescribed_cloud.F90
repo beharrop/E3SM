@@ -5,22 +5,19 @@ module prescribed_cloud
 !
 ! Reads cloud-related fields, puts the them into the physics buffer for use
 ! by radiation
+! This code was written by Bryce Harrop with significant contributions from 
+! Balwinder Singh, Brian Medeiros, and Jerry Olson
 !
 !--------------------------------------------------------------------------
 
-!++BEH
-!  use shr_kind_mod, only : r8 => shr_kind_r8
   use shr_kind_mod,     only : r8 =>shr_kind_r8, cx =>SHR_KIND_CX, cl =>SHR_KIND_CL, &
                                cs =>SHR_KIND_CS, cxx =>SHR_KIND_CXX
-!--BEH
   use cam_abortutils,   only : endrun
   use spmd_utils,       only : masterproc
   use tracer_data,      only : trfld, trfile
   use cam_logfile,      only : iulog
-!++BEH
   use input_data_utils, only : time_coordinate
   use shr_log_mod ,     only : errMsg => shr_log_errMsg
-!--BEH
 
   implicit none
   private
@@ -39,36 +36,18 @@ module prescribed_cloud
   public :: prescribed_cloud_readnl
 
   logical :: has_prescribed_cloud = .false.
-!! JGOmod
-!  integer          , parameter :: nflds             = 10
-!  character(len=16), parameter :: cloud_name(nflds) = (/'DEI_in'   ,'MU_in'  ,'LAMBDAC_in' ,'ICIWP_in' ,'ICLWP_in' ,'DES_in' , &
-!                                                        'ICSWP_in' ,'CLD_in' ,'CLDLIQ_in'  ,'CLDICE_in'  /)
-!
-!  character(len=16)  :: fld_name(nflds)             = (/'DEI_rad'  ,'MU_rad' ,'LAMBDAC_rad','ICIWP_rad','ICLWP_rad','DES_rad', &
-!                                                        'ICSWP_rad','CLD_rad','CLDLIQ_rad' ,'CLDICE_rad' /)
-! BPM: added 1 to nflds; added CLDFSNOW_* into *_name
   integer          , parameter :: nflds             = 10
-! BEH no need for _in, just use _rad so that we don't have to rename variables to be read in
-!  character(len=16), parameter :: cloud_name(nflds) = (/'DEI_in'   ,'MU_in'  ,'LAMBDAC_in' ,'ICIWP_in' ,'ICLWP_in' ,'DES_in' , &
-!                                                        'ICSWP_in' ,'CLD_in', 'CLDFSNOW_in', 'CONCLD_in' /)
   character(len=16), parameter :: cloud_name(nflds) = (/'DEI_rad'   ,'MU_rad'  ,'LAMBDAC_rad' ,'ICIWP_rad' ,'ICLWP_rad' ,'DES_rad' , &
                                                         'ICSWP_rad' ,'CLD_rad', 'CLDFSNOW_rad', 'CONCLD_rad' /)
 
   character(len=16)  :: fld_name(nflds)             = (/'DEI_rad'  ,'MU_rad' ,'LAMBDAC_rad','ICIWP_rad','ICLWP_rad','DES_rad', &
                                                         'ICSWP_rad','CLD_rad', 'CLDFSNOW_rad', 'CONCLD_rad'/)
-!! JGOmod
   character(len=256) :: filename                    = ' '
   character(len=256) :: filelist                    = ' '
   character(len=256) :: datapath                    = ' '
-!BEH  character(len=32)  :: data_type                   = 'SERIAL'
   logical            :: rmv_file                    = .false.
-  integer            :: cycle_yr                    = 0
-  integer            :: fixed_ymd                   = 0
-  integer            :: fixed_tod                   = 0
   character(len=32)  :: specifier(nflds)            = ''
 
-
-!++BEH
   logical, parameter :: horz_native = .true. ! they will all have the same behavior if they
                                              ! all come from the same file
   logical            :: dimnames_set = .false. 
@@ -76,19 +55,16 @@ module prescribed_cloud
   character(len=16)  :: spc_name_list(nflds)
   character(len=cl)  :: spc_flist(nflds),spc_fnames(nflds)
   character(len=8)   :: dim1name, dim2name
-  character(len=32)  :: data_type = 'CYCLICAL' ! 'CYCLICAL'
+  character(len=32)  :: data_type = 'CYCLICAL'
   real(r8)           :: num_file_years = 0._r8
   character(len=32)  :: air_type  = 'CYCLICAL_LIST'
-!  logical, parameter :: horz_native(nflds) = (/.true., .true., .true., .true., .true., &
-!       .true., .true., .true., .true., .true./)
-!  integer            :: index_map(nflds)
+
   !------------------------------------------------------------------
   !DEFINITION:
   !"native grid forcing file": A forcing file which has to be on the 
   !same grid horizontally as the model is running on. For example, 
   !if the model is running on ne30 grid, forcing file has to be on
-  !ne30 grid horizontally. The vertical resolution can be different 
-  !from the model vertical resolution.
+  !ne30 grid horizontally.
   !------------------------------------------------------------------
   
   type :: forc_air_native_grid
@@ -152,7 +128,7 @@ module prescribed_cloud
   end type forcing_air
   
   type(forcing_air), allocatable :: forcings_air(:)
-!--BEH
+
 contains
 
 !-------------------------------------------------------------------
@@ -171,37 +147,6 @@ contains
 
   endsubroutine prescribed_cloud_register
 
-!-------------------------------------------------------------------
-!-------------------------------------------------------------------
-  subroutine prescribed_cloud_init_orig()
-
-    use tracer_data, only : trcdata_init
-
-    implicit none
-
-    integer :: ndx, istat, i
-
-    if ( has_prescribed_cloud ) then
-       if ( masterproc ) then
-          write(iulog,*) 'cloud is prescribed in :'//trim(filename)
-       endif
-    else
-       return
-    endif
-
-    do i = 1,nflds
-       specifier(i) = trim(cloud_name(i))//':'//trim(fld_name(i))
-    end do
-
-
-    allocate(file%in_pbuf(size(specifier)))
-    file%in_pbuf(:) = .true.
-    file%stepTime   = .true.
-    file%xyzint     = .false.
-    call trcdata_init( specifier, filename, filelist, datapath, fields, file, &
-                       rmv_file, cycle_yr, fixed_ymd, fixed_tod, data_type)
-
-  end subroutine prescribed_cloud_init_orig
 
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
@@ -221,9 +166,6 @@ subroutine prescribed_cloud_readnl(nlfile)
    character(len=256) :: prescribed_cloud_filelist
    character(len=256) :: prescribed_cloud_datapath
    character(len=32)  :: prescribed_cloud_type
-   integer            :: prescribed_cloud_cycle_yr
-   integer            :: prescribed_cloud_fixed_ymd
-   integer            :: prescribed_cloud_fixed_tod
    real(r8)           :: prescribed_cloud_num_file_years
 
    namelist /prescribed_cloud_nl/ &
@@ -231,9 +173,6 @@ subroutine prescribed_cloud_readnl(nlfile)
       prescribed_cloud_filelist,  &
       prescribed_cloud_datapath,  &
       prescribed_cloud_type,      &
-      prescribed_cloud_cycle_yr,  &
-      prescribed_cloud_fixed_ymd, &
-      prescribed_cloud_fixed_tod, &
       prescribed_cloud_num_file_years
    !-----------------------------------------------------------------------------
 
@@ -242,9 +181,6 @@ subroutine prescribed_cloud_readnl(nlfile)
    prescribed_cloud_filelist = filelist
    prescribed_cloud_datapath = datapath
    prescribed_cloud_type     = data_type
-   prescribed_cloud_cycle_yr = cycle_yr
-   prescribed_cloud_fixed_ymd= fixed_ymd
-   prescribed_cloud_fixed_tod= fixed_tod
    prescribed_cloud_num_file_years= num_file_years
 
    ! Read namelist
@@ -268,9 +204,6 @@ subroutine prescribed_cloud_readnl(nlfile)
    call mpibcast(prescribed_cloud_filelist, len(prescribed_cloud_filelist), mpichar, 0, mpicom)
    call mpibcast(prescribed_cloud_datapath, len(prescribed_cloud_datapath), mpichar, 0, mpicom)
    call mpibcast(prescribed_cloud_type,     len(prescribed_cloud_type),     mpichar, 0, mpicom)
-   call mpibcast(prescribed_cloud_cycle_yr, 1, mpiint,  0, mpicom)
-   call mpibcast(prescribed_cloud_fixed_ymd,1, mpiint,  0, mpicom)
-   call mpibcast(prescribed_cloud_fixed_tod,1, mpiint,  0, mpicom)
    call mpibcast(prescribed_cloud_num_file_years, 1, mpir8, 0, mpicom)
 #endif
 
@@ -279,9 +212,6 @@ subroutine prescribed_cloud_readnl(nlfile)
    filelist   = prescribed_cloud_filelist
    datapath   = prescribed_cloud_datapath
    data_type  = prescribed_cloud_type
-   cycle_yr   = prescribed_cloud_cycle_yr
-   fixed_ymd  = prescribed_cloud_fixed_ymd
-   fixed_tod  = prescribed_cloud_fixed_tod
    num_file_years = prescribed_cloud_num_file_years
 
    ! Turn on prescribed cloud if user has specified an input dataset.
@@ -290,30 +220,6 @@ subroutine prescribed_cloud_readnl(nlfile)
 end subroutine prescribed_cloud_readnl
 
 !-------------------------------------------------------------------
-!-------------------------------------------------------------------
-  subroutine prescribed_cloud_adv_orig( state, pbuf2d)
-
-    use tracer_data,  only : advance_trcdata
-    use physics_types,only : physics_state
-    use ppgrid,       only : begchunk, endchunk
-    use ppgrid,       only : pcols, pver
-    use string_utils, only : to_lower, GLC
-    use physconst,    only : mwdry                ! molecular weight dry air ~ kg/kmole
-
-    use physics_buffer, only : physics_buffer_desc, pbuf_get_chunk, pbuf_get_field, pbuf_set_field
-
-    implicit none
-
-    type(physics_state), intent(in)    :: state(begchunk:endchunk)
-
-    type(physics_buffer_desc), pointer :: pbuf2d(:,:)
-
-    if( .not. has_prescribed_cloud ) return
-
-    call advance_trcdata( fields, file, state, pbuf2d )
-
-  end subroutine prescribed_cloud_adv_orig
-
 !-------------------------------------------------------------------
 
   subroutine init_prescribed_cloud_restart( piofile )
@@ -356,7 +262,6 @@ end subroutine prescribed_cloud_readnl
     ! **** Initialize the aircraft aerosol data handling ****
     ! called by:
     !-------------------------------------------------------------------
-    use cam_history,      only: addfld, add_default
     use tracer_data,      only: trcdata_init
     use physics_types,    only: physics_state
     use ppgrid,           only: begchunk, endchunk, pcols
@@ -398,8 +303,7 @@ end subroutine prescribed_cloud_readnl
     !------------------------------------------------------------------
     ! Return if aircraft_cnt is zero (no aircraft data to process)
     !------------------------------------------------------------------
-!++BEH
-!    if (aircraft_cnt == 0 ) return
+
     if ( has_prescribed_cloud ) then
        if ( masterproc ) then
           write(iulog,*) 'now cloud is prescribed in :'//trim(filename)
@@ -409,20 +313,17 @@ end subroutine prescribed_cloud_readnl
     endif
 
     do i = 1,nflds
-!       specifier(i) = trim(cloud_name(i))//':'//trim(fld_name(i))
        specifier(i) = trim(cloud_name(i))
        if ( masterproc ) then
           write(iulog,*) 'A specifier:'//specifier(i)
        endif
     end do
-!--BEH
     
     
     !------------------------------------------------------------------
     ! For forcing files which has to be on the native grid,dimensions
     ! are set in the following if condition
     !------------------------------------------------------------------
-!    if( any( horz_native(:) ) ) then ! reduce horz_native to single boolean
     if( horz_native ) then
        if (.not. dimnames_set) then
           grid_id = cam_grid_id('physgrid')
@@ -439,10 +340,9 @@ end subroutine prescribed_cloud_readnl
        !--------------------------------------------------------------------------------
        ! allocate forcings type array for native grid forcing files
        !--------------------------------------------------------------------------------
-!++BEH
-!       allocate( native_grid_frc_air(aircraft_cnt), stat=astat )
+
        allocate( native_grid_cloud(nflds), stat=astat )
-!--BEH
+
        if( astat /= 0 ) then 
           write(err_str,*) 'failed to allocate native_grid_cloud array; error = ',astat,',',errmsg(__FILE__, __LINE__)
           call endrun(err_str)
@@ -456,10 +356,9 @@ end subroutine prescribed_cloud_readnl
        !-----------------------------------------------------------------------
        !       allocate forcings type array
        !-----------------------------------------------------------------------
-!++BEH
-!       allocate( forcings_air(aircraft_cnt), stat=astat )
+
        allocate( forcings_air(nflds), stat=astat )
-!--BEH
+
        if( astat/= 0 ) then
           write(err_str,*) 'failed to allocate forcings_air array; error = ',astat,',',errmsg(__FILE__, __LINE__)
           call endrun(err_str) 
@@ -470,30 +369,25 @@ end subroutine prescribed_cloud_readnl
     !-----------------------------------------------------------------------
     !       setup the forcings_air type array
     !-----------------------------------------------------------------------
-!++BEH
-!    species_loop : do m = 1,aircraft_cnt
+
     species_loop : do m = 1,nflds
        
-!       spc_name = spc_name_list(m)
        spc_name = specifier(m)
 
        spc_cname = trim(cloud_name(m))
-!       spc_fname = trim(fld_name(m))
        spc_fname = trim(cloud_name(m))
        if ( masterproc ) then
           write(iulog,*) 'spc_name is: '//trim(spc_name)
           write(iulog,*) 'spc_cname is: '//trim(spc_cname)
           write(iulog,*) 'spc_fname is: '//trim(spc_fname)
        endif
-!--BEH
        
 !       if( horz_native(index_map(m))) then
        if( horz_native ) then
           !-----------------------------------------------------------------------
           !       initialize variables for native grid forcing files
           !-----------------------------------------------------------------------
-
-!++BEH          
+       
           native_grid_cloud(m)%spc_name_ngrd  = spc_name
           native_grid_cloud(m)%spc_cname_ngrd = spc_cname
           native_grid_cloud(m)%spc_fname_ngrd = spc_fname
@@ -505,8 +399,6 @@ end subroutine prescribed_cloud_readnl
              fixed = .true.
           case( 'CYCLICAL' )
              cyclical = .true.
-             !file%cyc_yr = data_cycle_yr
-             ! BEH - should I be setting num_file_years for this?
           case( 'SERIAL' )
              ! Do nothing
           case default 
@@ -514,15 +406,10 @@ end subroutine prescribed_cloud_readnl
              write(iulog,*) 'prescribed_cloud: valid data types: SERIAL | CYCLICAL | FIXED '
              call endrun('prescribed_cloud: invalid data type: '//trim(data_type)//' file: '//trim(filename))
           endselect
-!--BEH
-!++BEH
-!          native_grid_cloud(m)%input_file     = trim(datapath)//'/'//trim(spc_fnames(m)) !BEH air_datapath -> datapath
+
           native_grid_cloud(m)%input_file     = trim(datapath)//'/'//trim(filename)
-!--BEH
 
           native_grid_cloud(m)%initialized    = .false.
-          !dtime = 1.0_r8 - 200.0_r8 / 86400.0_r8
-          !dtime = -1.0_r8
           dtime  = 0.0_r8
           call native_grid_cloud(m)%time_coord%initialize(trim(adjustl(native_grid_cloud(m)%input_file)), &
                force_time_interp=.true., delta_days=dtime, fixed=fixed, &
@@ -545,7 +432,7 @@ end subroutine prescribed_cloud_readnl
           !(e.g. model is running on an FV grid and forcing netcdf file is on an SE grid), exit with an error
           if(pio_inq_dimid(fh, trim(adjustl(dim1name)), dim1id) /= pio_noerr) then
              !pio_inq_dimid function tries to find dim1name in file with id "fh"
-             !if it can't find dim1name, it means there is a mismacth in model and netcdf
+             !if it can't find dim1name, it means there is a mismatch in model and netcdf
              !file grid
              call endrun('grid mismatch, failed to find '//dim1name//' dimension in file:'&
                   ' '//trim(adjustl(native_grid_cloud(m)%input_file))//' '&
@@ -592,40 +479,6 @@ end subroutine prescribed_cloud_readnl
                      trim(adjustl(native_grid_cloud(m)%input_file)),',',errmsg(__FILE__, __LINE__)
                 call endrun(err_str)
              endif
-             !obtain level bounds needed for vertical interpolation
-!++BEH --- don't need lev_bnds since there is no vertical interpolation
-!             if( pio_inq_varid(fh, 'lev_bnds', var_id) ==  pio_noerr ) then
-!                !get dimension "bound"
-!                if( pio_inq_dimid(fh, 'bound', dimbndid) ==  pio_noerr ) then
-!                   if ( pio_inquire_dimension(fh, dimbndid, len = nbnd) ==  pio_noerr ) then
-!                      !"nbnd" has to be 2 (it is obvious but adding a check here doesn't hurt)
-!                      if(nbnd /= 2) then
-!                         write(err_str,*)'"bound" should be equal to 2, bound=',nbnd,' in file:', &
-!                              trim(adjustl(native_grid_frc_air(m)%input_file)),',',errmsg(__FILE__, __LINE__)
-!                         call endrun(err_str)
-!                      endif
-!                      allocate(native_grid_frc_air(m)%lev_bnds(nbnd,native_grid_frc_air(m)%lev_frc))
-!                      if (pio_get_var(fh, var_id,native_grid_frc_air(m)%lev_bnds) /=  pio_noerr ) then
-!                         write(err_str,*)'failed to read "lev_bnds" variable from file:',&
-!                              trim(adjustl(native_grid_frc_air(m)%input_file)),',',errmsg(__FILE__, __LINE__)
-!                         call endrun(err_str)
-!                      endif
-!                   else
-!                      write(err_str,*)'failed to obtain value of "bound" dimension from file:',&
-!                           trim(adjustl(native_grid_frc_air(m)%input_file)),',',errmsg(__FILE__, __LINE__)
-!                      call endrun(err_str)
-!                   endif
-!                else
-!                   write(err_str,*)'failed to inquire "bound" dimension from file:',&
-!                        trim(adjustl(native_grid_frc_air(m)%input_file)),',',errmsg(__FILE__, __LINE__)
-!                   call endrun(err_str)
-!                endif
-!             else
-!                write(err_str,*)'failed to obtain "lev_bnds" variable from file:',&
-!                     trim(adjustl(native_grid_frc_air(m)%input_file)),',',errmsg(__FILE__, __LINE__)
-!                call endrun(err_str)                
-!             endif
-!--BEH
           else
              write(err_str,*)'Dimension "lev" is not found in:',&
                   trim(adjustl(native_grid_cloud(m)%input_file)),',',errmsg(__FILE__, __LINE__)
@@ -633,7 +486,6 @@ end subroutine prescribed_cloud_readnl
           endif
           
           !get units of the data in the forcing file
-!BEH === do I need units for these things?  Looks like all the vars have the units attribute
           if(pio_inq_varid( fh, spc_fname, var_id ) == pio_noerr ) then
              if(pio_get_att( fh, var_id, 'units', native_grid_cloud(m)%units) .ne. pio_noerr ) then
                 write(err_str,*)'failed to obtain units of variable ',trim(spc_fname),' in &
@@ -692,59 +544,28 @@ end subroutine prescribed_cloud_readnl
           !-----------------------------------------------------------------------
           !         default settings
           !-----------------------------------------------------------------------
-          forcings_air(m)%file%stepTime    = .true.  ! Aircraft data is not to be interpolated in time
-          forcings_air(m)%file%cyclical_list    = .true.  ! Aircraft data cycles over the filename list
-          forcings_air(m)%file%weight_by_lat     = .true.  ! Aircraft data -  interpolated with latitude weighting
-          forcings_air(m)%file%conserve_column = .true. ! Aircraft data - vertically interpolated to conserve the total column
-          forcings_air(m)%species          = spc_name
-          forcings_air(m)%sectors          = spc_name ! Only one species per file for aircraft data
-          forcings_air(m)%nsectors         = 1
-          forcings_air(m)%filelist         = spc_flist(m)
-          !         forcings_air(m)%file%curr_filename    = spc_fnames(m)
-          forcings_air(m)%filename         = spc_fnames(m)
+          forcings_air(m)%file%stepTime        = .true.   ! Aircraft data is not to be interpolated in time
+          forcings_air(m)%file%cyclical_list   = .true.   ! Aircraft data cycles over the filename list
+          forcings_air(m)%file%weight_by_lat   = .true.   ! Aircraft data -  interpolated with latitude weighting
+          forcings_air(m)%file%conserve_column = .true.   ! Aircraft data - vertically interpolated to conserve the total column
+          forcings_air(m)%species              = spc_name
+          forcings_air(m)%sectors              = spc_name ! Only one species per file for aircraft data
+          forcings_air(m)%nsectors             = 1
+          forcings_air(m)%filelist             = spc_flist(m)
+          forcings_air(m)%filename             = spc_fnames(m)
        endif
-
-!++BEH --- I don't need these, but may want to keep them for debugging purposes
-!       call addfld( trim(spc_cname)//'_debug', (/ 'lev' /), 'A',  '1/s',     &
-!            'aircraft emission '//trim(spc_cname) )
-!       call add_default( trim(spc_cname)//'_debug', 1, ' ' )
-!--BEH
        
     end do species_loop
-    
-!++BEH not sure what to do this, so for now commenting out
-!    if (masterproc) then
-!       !-----------------------------------------------------------------------
-!       !            diagnostics
-!       !-----------------------------------------------------------------------
-!       write(iulog,*) ' '
-!       write(iulog,*) 'aircraft_emit_init: diagnostics'
-!       write(iulog,*) ' '
-!       write(iulog,*) 'aircraft_emit timing specs'
-!       write(iulog,*) 'type = ',air_type
-!       write(iulog,*) ' '
-!       write(iulog,*) 'there are ',aircraft_cnt,' species of aircraft emission'
-!       do m = 1,aircraft_cnt
-!          write(iulog,*) ' '          
-!          write(iulog,*) 'forcing type ',m
-!          write(iulog,*) 'species = ',spc_name_list(m)
-!          write(iulog,*) 'filelist= ',spc_flist(m)
-!       end do
-!       write(iulog,*) ' '
-!    endif
-!--BEH
+
     
     
     !------------------------------------------------------------------
     !       Initialize the aircraft file processing
     !------------------------------------------------------------------
-!++BEH
-!    do m=1,aircraft_cnt
+
     do m=1,nflds
-!--BEH
 
        number_flds = 0
-!       if(horz_native(index_map(m))) then
        if(horz_native) then
           if (associated(native_grid_cloud(m)%native_grid_flds_tslices)) &
                number_flds = 1
@@ -756,12 +577,8 @@ end subroutine prescribed_cloud_readnl
           forcings_air(m)%file%in_pbuf(:) = .true.
           if (associated(forcings_air(m)%fields)) number_flds = size( forcings_air(m)%fields )
           
-!++BEH
-!          call trcdata_init( forcings_air(m)%sectors, forcings_air(m)%filename, forcings_air(m)%filelist, air_datapath, &
-!               forcings_air(m)%fields, forcings_air(m)%file, rmv_file, 0, 0, 0, air_type)
           call trcdata_init( forcings_air(m)%sectors, forcings_air(m)%filename, forcings_air(m)%filelist, datapath, &
                forcings_air(m)%fields, forcings_air(m)%file, rmv_file, 0, 0, 0, air_type)
-!--BEH
        endif
        
        if( number_flds < 1 ) then
@@ -779,16 +596,12 @@ end subroutine prescribed_cloud_readnl
     ! called by:
     !-------------------------------------------------------------------
     
-    use perf_mod,     only: t_startf, t_stopf
-    use tracer_data,  only: advance_trcdata
-    use physics_types,only: physics_state
-    use ppgrid,       only: begchunk, endchunk
-    use ppgrid,       only: pcols, pver
-    use string_utils, only: to_lower, GLC
-    use cam_history,  only: outfld
-    use physconst,    only: mwdry       ! molecular weight dry air ~ kg/kmole
-    use physconst,    only: boltz                ! J/K/molecule
-    ! C.-C. Chen
+    use perf_mod,       only: t_startf, t_stopf
+    use tracer_data,    only: advance_trcdata
+    use physics_types,  only: physics_state
+    use ppgrid,         only: begchunk, endchunk
+    use ppgrid,         only: pcols, pver
+    use string_utils,   only: to_lower, GLC
     use physics_buffer, only : physics_buffer_desc, pbuf_get_field, pbuf_get_chunk
     
     implicit none
@@ -798,29 +611,23 @@ end subroutine prescribed_cloud_readnl
     type(physics_buffer_desc), pointer :: pbuf_chnk(:)
     
     integer             :: ind, c, ncol, i, caseid, m, pbuf_ndx
-!    real(r8)            :: to_mmr(pcols,pver)
     real(r8), pointer   :: tmpptr(:,:)
-!    real(r8), pointer   :: tmpptr(:)
     character(len = cs) :: units_spc
     
     !------------------------------------------------------------------
     ! Return if aircraft_cnt is zero (no aircraft data to process)
     !------------------------------------------------------------------
-!++BEH
-!    if (aircraft_cnt == 0 ) return
+
     if( .not. has_prescribed_cloud ) return
-!--BEH
+
     call t_startf('All_aircraft_emit_adv')
     
     !-------------------------------------------------------------------
     !    For each field, read more data if needed and interpolate it to the current model time
     !-------------------------------------------------------------------
-!++BEH
-!    do m = 1, aircraft_cnt
+
     do m = 1,nflds
-!--BEH
-       
-!       if(horz_native(index_map(m))) then ! if horizontal grid is native
+
        if (horz_native) then
           units_spc = native_grid_cloud(m)%units
           pbuf_ndx  = native_grid_cloud(m)%pbuf_ndx
@@ -829,15 +636,6 @@ end subroutine prescribed_cloud_readnl
           !following call just reads in time slices in horizontal
           !vertical interpolation is done in the next call
           call advance_native_grid_data( native_grid_cloud(m) )
- 
-          !do vertical interpolation
-          
-          !following call needs state to get ncol for each chunk and
-          !pbuf for storing the interpolated (time and vertically)
-          !field in pbuf
-!++BEH --- don't do vertical interpolation anymore
-!          call vert_interp( state, pbuf_ndx, native_grid_frc_air(m), pbuf2d)
-!--BEH
 
 !++BEH ---->  Testing putting data into pbuf
           !Need to store the native_grid_cloud data into the physics buffer.
@@ -848,7 +646,6 @@ end subroutine prescribed_cloud_readnl
              call pbuf_get_field(pbuf_chnk, pbuf_ndx, tmpptr)
              tmpptr(:ncol,:) = native_grid_cloud(m)%native_grid_flds(:,:,c)
           enddo
-!--BEH
           
        else          
           units_spc = forcings_air(m)%fields(i)%units
@@ -856,63 +653,6 @@ end subroutine prescribed_cloud_readnl
           call advance_trcdata( forcings_air(m)%fields, forcings_air(m)%file, state, pbuf2d)
        endif
 
-       !-------------------------------------------------------------------
-       !    set the tracer fields with the correct units
-       !-------------------------------------------------------------------
-!++BEH I do not need to adjust units for the cloud fields.  All this should go.
-!       do i = 1,number_flds
-!          
-!          !initialize caseid so that it is not used inadvertantly
-!          caseid = huge_int
-!          ind    = index_map(i)
-!          
-!          !only assign valid integer if we need unit conversion
-!          if ( convert_to_mmr(ind) ) then
-!             ! C.-C. Chen, adding case 4  for kg/sec
-!             select case ( to_lower(trim(units_spc(:GLC(units_spc)))) )
-!             case ("molec/cm3","/cm3","molecules/cm3","cm^-3","cm**-3")
-!                caseid = 1
-!             case ('kg/kg','mmr')
-!                caseid = 2
-!             case ('mol/mol','mole/mole','vmr','fraction')
-!                caseid = 3
-!             case ('kg/kg/sec')
-!                caseid = 4
-!             case default
-!                print*, 'aircraft_emit_adv: units = ',trim(units_spc) ,' are not recognized'
-!                call endrun('aircraft_emit_adv: units are not recognized '//errmsg(__FILE__, __LINE__))
-!             end select
-!          endif
-!          
-!          !$OMP PARALLEL DO PRIVATE (C, NCOL, TO_MMR, tmpptr, pbuf_chnk)
-!          do c = begchunk,endchunk
-!             ncol = state(c)%ncol
-!             
-!             !initialize to_mmr to 1.0 for cases where unit conversion is not required
-!             !(i.e., caseid is not assigned an integer value)
-!             to_mmr(:ncol,:) = 1.0_r8
-!             
-!             if (caseid == 1) then ! change it to select-case?
-!                to_mmr(:ncol,:) = (molmass(ind)*1.e6_r8*boltz*state(c)%t(:ncol,:))/(mwdry*state(c)%pmiddry(:ncol,:))
-!             elseif(caseid == 2) then
-!                to_mmr(:ncol,:) = 1.0_r8
-!             elseif(caseid == 3) then
-!                to_mmr(:ncol,:) = molmass(ind)/mwdry
-!             elseif(caseid == 4) then
-!                to_mmr(:ncol,:) = 1.0_r8
-!             endif
-!             
-!             pbuf_chnk => pbuf_get_chunk(pbuf2d, c)
-!             
-!             call pbuf_get_field(pbuf_chnk, pbuf_ndx , tmpptr )
-!             
-!             tmpptr(:ncol,:) = tmpptr(:ncol,:)*to_mmr(:ncol,:)
-!             
-!             call outfld( trim(spc_name_list(m)), &
-!                  tmpptr, ncol, state(c)%lchnk )
-!          enddo
-!       enddo
-!--BEH
     enddo
     
     call t_stopf('All_aircraft_emit_adv')

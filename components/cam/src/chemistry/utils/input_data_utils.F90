@@ -520,13 +520,9 @@ contains
        else
           if (i .ge. obj%ntimes) then
              !BEH: we don't want to error out, but we want to break the loop.
-!BEH             errmsg = 'input_data_utils::set_wghts_indices cannot not find model time in: '&
-!BEH                    // trim(obj%filename)
-!BEH             write(iulog,*) trim(errmsg)
-!BEH             call endrun(trim(errmsg))
              index        = obj%ntimes
              obj%indxs(1) = obj%ntimes
-             obj%indxs(2) = 1            !BEH IS THIS CORRECT????
+             obj%indxs(2) = 1         
              exit findtimes
           endif
           datatm = obj%times(i)
@@ -586,12 +582,14 @@ contains
        obj%wghts(1) = 1._r8
        obj%wghts(2) = 0._r8       
     endif
-    if (masterproc) then
-       write(iulog,*) 'The weights, and times, and indexes are '
-       write(iulog,*) obj%wghts(1), obj%wghts(2), model_time, &
-            obj%times(obj%indxs(1)), obj%times(obj%indxs(2)), &
-            obj%indxs(1), obj%indxs(2), model_time_temp, offset_time
-    endif
+    !++BEH -- uncomment for debugging this routine
+    !if (masterproc) then
+    !   write(iulog,*) 'The weights, and times, and indexes are '
+    !   write(iulog,*) obj%wghts(1), obj%wghts(2), model_time, &
+    !        obj%times(obj%indxs(1)), obj%times(obj%indxs(2)), &
+    !        obj%indxs(1), obj%indxs(2), model_time_temp, offset_time
+    !endif
+    !--BEH
   end subroutine set_wghts_indices_cyclical
 !--BEH
 
