@@ -270,6 +270,7 @@ contains
    use metdata,             only: metdata_readnl
 #endif
    use radiation,           only: radiation_readnl
+   use prescribed_macv2,    only: prescribed_macv2_readnl
 
 !---------------------------Arguments-----------------------------------
 
@@ -517,6 +518,8 @@ contains
 
    ! Read radiation namelist
    call radiation_readnl(nlfilename, dtime_in=dtime)
+
+   call prescribed_macv2_readnl(nlfilename)
 
    ! Print cam_inparm input variables to standard output
    if (masterproc) then

@@ -28,7 +28,8 @@ use shr_kind_mod,    only: r8=>shr_kind_r8
 use spmd_utils,      only: masterproc, iam, npes
 use ppgrid,          only: pcols, pver, pverp, begchunk, endchunk
 use physics_types,   only: physics_state, physics_ptend
-use physconst,       only: cpair, cappa
+use physconst,       only: cpair, cappa, gravit
+use prescribed_macv2, only: do_macv2sp
 use time_manager,    only: get_nstep, is_first_restart_step
 use cam_abortutils,  only: endrun
 use error_messages,  only: handle_err
@@ -39,7 +40,7 @@ use perf_mod,        only: t_startf, t_stopf
 use cam_logfile,     only: iulog
 
 use rad_constituents, only: N_DIAG, rad_cnst_get_call_list, rad_cnst_get_info
-use radconstants,     only: rrtmg_sw_cloudsim_band, rrtmg_lw_cloudsim_band, nswbands, nlwbands
+use radconstants,     only: rrtmg_sw_cloudsim_band, rrtmg_lw_cloudsim_band, nswbands, nlwbands, wavenum_low, wavenum_high
 
 implicit none
 private
@@ -838,6 +839,19 @@ end function radiation_nextsw_cday
                 'Cosine of solar zenith angle', &
                 sampling_seq='rad_lwsw', flag_xyfill=.true.)
 
+   if(do_macv2sp) then
+         !these variables need to be added to a control simulation, only for ~550nm wavelength
+      call addfld ('AER_TAU',         (/ 'lev' /),  'A', '-','aerosol extinction optical depth')
+      call addfld ('AER_TAU_W',       (/ 'lev' /),  'A', '-','aerosol single scattering albedo * tau')
+      call addfld ('AER_TAU_W_G',     (/ 'lev' /),  'A', '-','aerosol assymetry parameter * w * tau')
+      call addfld ('AER_TAU_W_F',     (/ 'lev' /),  'A', '-','aerosol forward scattered fraction: tau*w*g*g')
+
+         !for debugging indirect effect
+      !call addfld ('lambda_cloud_rad',(/ 'lev' /),'I','1/meter','lambda in cloud, written from radiation (KSA)')
+      !call addfld ('mu_cloud_rad',    (/ 'lev' /),'I','1','mu in cloud, written from radiation (KSA)')   
+   end if  
+
+
   end subroutine radiation_init
 
 !===============================================================================
@@ -941,6 +955,8 @@ end function radiation_nextsw_cday
     use output_aerocom_aie,   only: do_aerocom_ind3
     use pkg_cldoptics,        only: cldefr  ! for sam1mom microphysics
 
+    use prescribed_macv2,     only: sp_aop_profile, swbandnum
+    use time_manager,         only: get_curr_date, get_curr_calday
 
     ! Arguments
     logical,  intent(in)    :: is_cmip6_volc    ! true if cmip6 style volcanic file is read otherwise false 
@@ -1252,6 +1268,28 @@ end function radiation_nextsw_cday
 
     character(*), parameter :: name = 'radiation_tend'
     character(len=16)       :: MMF_microphysics_scheme  ! MMF_microphysics scheme
+
+    !++BEH add variables for MACv2-SP
+    integer :: yr, mon, day      ! year, month, and day components of date
+    integer :: ncsec             ! current time of day [seconds]
+    integer :: isw               ! additional loop indices
+    integer,  parameter :: nmon = 12
+    real(r8), parameter :: mons(nmon) = (/1., 2., 3., 4., 5., 6., 7., 8., 9.,10.,11.,12./)
+    real(r8) :: lambda           !SW wavelengh input to MACV2
+    real(r8) :: year_fr
+    real(r8) :: itau
+    real(r8) :: itauw(2)
+    real(r8) :: itaug(2)
+    real(r8) :: aod_prof(pcols,pver,nswbands)     ! profile of aerosol optical depth
+    real(r8) :: ssa_prof(pcols,pver,nswbands)     ! profile of single scattering albedo
+    real(r8) :: asy_prof(pcols,pver,nswbands)     ! profile of asymmetry parameter
+    real(r8) :: mac_tau_w(pcols,pver,nswbands)    ! single scattering albedo (w) * tau
+    real(r8) :: mac_tau_w_g(pcols,pver,nswbands)  ! asymmetry parameter (g) * w * tau
+    real(r8) :: mac_tau_w_f(pcols,pver,nswbands)  ! forward scattered fraction: tau*w*g*g
+    ! for debugging indirect effect
+    real(r8), pointer :: mu_cld(:,:)        ! gamma distribution for liq clouds
+    real(r8), pointer :: lambda_cld(:,:)    ! gamma distribution for liq clouds
+    !--BEH
 !----------------------------------------------------------------------
   
     call phys_getopts( use_MMF_out           = use_MMF )
@@ -1381,6 +1419,37 @@ end function radiation_nextsw_cday
     dosw = radiation_do('sw')      ! do shortwave heating calc this timestep?
     dolw = radiation_do('lw')      ! do longwave heating calc this timestep?
 
+    !++BEH for initializing and debugging MACv2-SP
+    if(do_macv2sp) then
+        !read and write the mu and lambda parameters of the gamma 
+        ! distribution of cloud droplets, related to MACv2-SP indirect effect
+        !B call pbuf_get_field(pbuf, mu_idx, mu_cld )
+        !B call pbuf_get_field(pbuf, lambda_idx, lambda_cld )
+
+        !B call outfld('mu_cloud_rad',mu_cld, pcols,lchnk)
+        !B call outfld('lambda_cloud_rad',lambda_cld ,pcols,lchnk)
+   
+   
+        ! initialize MACv2-SP aerosol optical parameters
+        ! the first three are initialized inside the subroutine sp_aop_profile as 
+        ! intent-out variables -> with Intel compiler, initialization here will be ignored
+        !aod_prof(:,:,:) = 0._r8
+        !ssa_prof(:,:,:)     = 0._r8
+        !asy_prof(:,:,:)     = 0._r8
+        
+        ! initialize to conditions that would cause failure (for columns beyond ncol)
+        mac_tau_w(:,:,:)     = -100._r8
+        mac_tau_w_g(:,:,:)     = -100._r8
+        mac_tau_w_f(:,:,:)     = -100._r8
+        
+        ! and initialize 1:ncol with physical values
+        mac_tau_w(1:ncol,:,:)     = 0._r8
+        mac_tau_w_g(1:ncol,:,:)     = 0._r8
+        mac_tau_w_f(1:ncol,:,:)     = 0._r8
+        
+     end if
+     !--BEH
+    
     ! Initialize averages over CRM columns to zero. These are aggregated over
     ! the loop over CRM columns below.
     if (use_MMF) then 
@@ -1766,6 +1835,57 @@ end function radiation_nextsw_cday
           if (dosw) then
             call t_startf ('rad_sw')
 
+            !++BEH  calculate MACv2-SP aerosol direct effects 
+            if(do_macv2sp) then
+               !get year fraction for MACv2-SP's prescribed annual cycle and year-to-year variability  
+                call get_curr_date(yr, mon, day, ncsec)
+                year_fr = yr + calday/365.0_r8
+
+                !B if (masterproc .AND. localdebug) then !for debug/understanding
+                !B     write(iulog,*) 'radiation_tend (KSA): calling sp_aop_profile'
+                !B     write(iulog,*) 'radiation_tend (KSA): calday', calday
+                !B     write(iulog,*) 'radiation_tend (KSA): year_fr:', year_fr
+                !B end if
+
+
+             !loop over different wave bands, except for the last one which is outside the 
+             !assumed wavelength range in the MACv2-SP scheme
+             !the array elements for the last band are initialized to be 0 above, so it should not 
+             !cause problems (e.g., missing values) by adding these MACv2-SP optical parameters to 
+             !those from CAM's own aerosol optical parameters
+
+                do isw = 1, nswbands-1
+             
+                 !get the bin-center wavelength from the wave number bin  (in the units of nm)
+                 !this is an input to the sp_aop_profile subroutine of MACv2-SP
+                   lambda = 10.0_r8**7*( wavenum_low(isw)**-1 + wavenum_high(isw)**-1 )/2.0_r8 
+
+                   !B if (masterproc .AND. localdebug) then
+                   !B     write(iulog,*) 'radiation_tend (KSA): isw, lambda ', isw, lambda
+                   !B end if
+
+                   call sp_aop_profile (ncol ,lambda, state%phis/gravit, clon, clat, year_fr, state%zm, &
+                           aod_prof(:,:,isw)   ,ssa_prof(:,:,isw)   ,asy_prof(:,:,isw), lchnk, isw)
+                !state%phis for orography
+                !state%zm for z
+
+                !output diagnostic variables for MACv2-SP, only for the mid-visible wavelength
+                   if (isw == 10) then
+                      call outfld('MACv2_aod'//swbandnum(isw),  aod_prof(:,:,isw),  pcols, lchnk)
+                      call outfld('MACv2_ssa'//swbandnum(isw),  ssa_prof(:,:,isw),  pcols, lchnk)
+                      call outfld('MACv2_asy'//swbandnum(isw),  asy_prof(:,:,isw),  pcols, lchnk)
+                   end if
+
+                !prepare arrays to be combined with CAM's aerosol optical parameters 
+                !e.g, single-scattering albedo multiplied by optical depth
+                   mac_tau_w(:ncol,1:pver,isw)   = aod_prof(:ncol,1:pver,isw)*ssa_prof(:ncol,1:pver,isw)
+                   mac_tau_w_g(:ncol,1:pver,isw) = mac_tau_w(:ncol,1:pver,isw)*asy_prof(:ncol,1:pver,isw)
+                   mac_tau_w_f(:ncol,1:pver,isw) = mac_tau_w_g(:ncol,1:pver,isw)*asy_prof(:ncol,1:pver,isw)
+
+                end do
+            end if
+            !--BEH
+
             ! Calculate solar variability factor
             call get_variability(sfac)
 
@@ -1784,7 +1904,60 @@ end function radiation_nextsw_cday
 
                 ! Calculate the aerosol optical properties
                 call aer_rad_props_sw( icall, state, pbuf, nnite, idxnite, is_cmip6_volc, &
-                                       aer_tau, aer_tau_w, aer_tau_w_g, aer_tau_w_f)
+                     aer_tau, aer_tau_w, aer_tau_w_g, aer_tau_w_f)
+
+                !++BEH   combine MACv2-SP aerosol optical properties with natural aerosols
+                !(from isw = 1:13) for the climate call (icall==0) only, not for other diagnostic 
+                !calls for radiative forcings
+                !note that AEROD_v is already written to history file in aer_rad_props_sw
+                !so the MACv2SP effect is not included
+               
+                if ( (icall == 0) .AND. (do_macv2sp) ) then 
+               
+                    !another weighted average to combine MACv2 anthropogenic and CAM5 natural aerosol
+                    !optical properties
+                    do isw = 1, nswbands-1
+                       do k =1 , pver
+                          do i = 1, ncol
+                              !averaging weights, used for combining w (SSA)
+                              itau = aer_tau(i,k,isw) + aod_prof(i,k,isw) 
+                              
+                              !used for combining g (ASY)
+                              itauw(1) = aer_tau_w(i,k,isw)*aer_tau(i,k,isw)
+                              itauw(2) = mac_tau_w(i,k,isw)*aod_prof(i,k,isw)
+                              
+                              !used for combining f (forward scattered fraction)
+                              itaug(1) = aer_tau_w_g(i,k,isw)*aer_tau_w(i,k,isw)*aer_tau(i,k,isw)
+                              itaug(2) = mac_tau_w_g(i,k,isw)*mac_tau_w(i,k,isw)*aod_prof(i,k,isw)
+                              
+                              ! aerosol forward scattered fraction
+                              aer_tau_w_f(i,k,isw) = ( aer_tau_w_f(i,k,isw)*itaug(1) &
+                                            + mac_tau_w_f(i,k,isw)*itaug(2) )/(itaug(1) + itaug(2))
+                                          
+                              ! aerosol assymetry parameter  
+                              aer_tau_w_g(i,k,isw) = ( aer_tau_w_g(i,k,isw)*itauw(1) &
+                                            + mac_tau_w_g(i,k,isw)*itauw(2) )/(itauw(1) + itauw(2))
+                                       
+                              ! aerosol single scattering albedo     
+                              aer_tau_w(i,k,isw) = ( aer_tau_w(i,k,isw)*aer_tau(i,k,isw) &
+                                            + mac_tau_w(i,k,isw)*aod_prof(i,k,isw) )/itau
+                                                
+                          end do
+                       end do
+                    end do
+
+                    !for optiocal depth, just sum those from CAM5 (natural) and MACv2
+                    aer_tau(:ncol,1:pver,1:nswbands-1) = aer_tau(:ncol,1:pver,1:nswbands-1) &
+                                                + aod_prof(:ncol,1:pver,1:nswbands-1)
+                                                                             
+                    !these 3 variables has pver+1 levels
+                    call outfld('AER_TAU',  aer_tau(:,1:pver,idx_sw_diag),  pcols, lchnk)
+                    call outfld('AER_TAU_W',  aer_tau_w(:,1:pver,idx_sw_diag),  pcols, lchnk)
+                    call outfld('AER_TAU_W_G',  aer_tau_w_g(:,1:pver,idx_sw_diag),  pcols, lchnk)
+                    call outfld('AER_TAU_W_F',  aer_tau_w_f(:,1:pver,idx_sw_diag),  pcols, lchnk)
+
+                end if
+                !--BEH
 
                 ! Run the shortwave radiation driver
                 call t_startf ('rad_rrtmg_sw')
