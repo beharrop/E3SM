@@ -220,7 +220,7 @@
   </batch_system>
   <!-- for lawrence livermore computing -->
 
-  <!-- for NERSC machines: cori-haswell,cori-knl -->
+  <!-- for NERSC machines: perlmutter etc -->
   <batch_system type="nersc_slurm" >
     <batch_query per_job_arg="-j">squeue</batch_query>
     <batch_submit>sbatch</batch_submit>
@@ -314,46 +314,55 @@
       </queues>
     </batch_system>
 
-  <batch_system MACH="cori-haswell" type="nersc_slurm">
-     <directives>
-       <directive> --constraint=haswell</directive>
-     </directives>
-     <queues>
-       <queue walltimemax="00:30:00" nodemax="64" strict="true">debug</queue>
-       <queue walltimemax="01:00:00" default="true">regular</queue>
-     </queues>
-  </batch_system>
-
-  <batch_system MACH="cori-knl" type="nersc_slurm">
-    <directives>
-      <directive> --constraint=knl,quad,cache</directive>
-    </directives>
-    <queues>
-      <queue walltimemax="00:30:00" nodemax="512" strict="true">debug</queue>
-      <queue walltimemax="01:15:00" default="true">regular</queue>
-    </queues>
-  </batch_system>
-
-  <batch_system MACH="perlmutter" type="nersc_slurm">
+  <batch_system MACH="pm-gpu" type="nersc_slurm">
     <directives>
       <directive> --constraint=gpu</directive>
     </directives>
-    <directives compiler="nvidiagpu">
-      <directive> --gpus-per-task=1</directive>
-      <directive> --gpu-bind=map_gpu:0,1,2,3</directive>
-    </directives>
-    <directives compiler="nvidia">
-      <directive> -G 0</directive>
-    </directives>
     <directives compiler="gnugpu">
       <directive> --gpus-per-task=1</directive>
+    </directives>
+    <directives COMPSET="!.*MMF.*" compiler="gnugpu">
+      <directive> --gpu-bind=none</directive>
+    </directives>
+    <directives COMPSET=".*MMF.*" compiler="gnugpu">
       <directive> --gpu-bind=map_gpu:0,1,2,3</directive>
+    </directives>
+    <directives compiler="nvidiagpu">
+      <directive> --gpus-per-task=1</directive>
+      <directive> --gpu-bind=none</directive>
     </directives>
     <directives compiler="gnu">
       <directive> -G 0</directive>
     </directives>
+    <directives compiler="nvidia">
+      <directive> -G 0</directive>
+    </directives>
     <queues>
-      <queue walltimemax="00:45:00" nodemax="1500" default="true">regular</queue>
+      <queue walltimemax="00:45:00" nodemax="1600" default="true">regular</queue>
+      <queue walltimemax="00:45:00" nodemax="1600" strict="true">preempt</queue>
+      <queue walltimemax="00:15:00" nodemax="4" strict="true">debug</queue>
+    </queues>
+  </batch_system>
+
+  <batch_system MACH="pm-cpu" type="nersc_slurm">
+    <directives>
+      <directive> --constraint=cpu</directive>
+    </directives>
+    <queues>
+      <!-- Note: walltime is not the max walltime, but the default - see NERSC docs for Q limits, https://docs.nersc.gov/jobs/policy/ -->
+      <queue walltimemax="12:00:00" nodemax="4096" default="true">regular</queue>
+      <queue walltimemax="12:00:00" nodemax="4096" strict="true">preempt</queue>
+      <queue walltimemax="00:30:00" nodemax="8" strict="true">debug</queue>
+    </queues>
+  </batch_system>
+
+  <batch_system MACH="alvarez" type="nersc_slurm">
+    <directives>
+      <directive> --constraint=cpu</directive>
+    </directives>
+    <queues>
+      <queue walltimemax="00:30:00" nodemax="256" default="true">regular</queue>
+      <queue walltimemax="00:30:00" nodemax="4" strict="true">debug</queue>
     </queues>
   </batch_system>
 
@@ -518,7 +527,10 @@
        <directive>-alloc_flags "gpumps smt$SHELL{echo "(`./xmlquery --value MAX_TASKS_PER_NODE`+41)/42"|bc}"</directive>
      </directives>
      <queues>
-       <queue walltimemax="02:00" strict="true" default="true">batch</queue>
+       <queue walltimemax="02:00" nodemin="1" nodemax="4608" strict="true" default="true">batch</queue>
+       <queue walltimemax="02:00" nodemin="1" nodemax="54" strict="true" default="false">batch-hm</queue>
+       <queue walltimemax="02:00" nodemin="1" nodemax="91" strict="true" default="false">killable</queue>
+       <queue walltimemax="02:00" nodemin="1" nodemax="4608" strict="true" default="false">debug</queue>
      </queues>
    </batch_system>
 
@@ -572,11 +584,21 @@
     </queues>
    </batch_system>
 
-   <batch_system MACH="gcp" type="slurm" >
+   <batch_system MACH="gcp10" type="slurm" >
      <queues>
-       <queue walltimemax="01:30:00" default="true">compute-30</queue>
-       <queue walltimemax="01:30:00" default="true">computep</queue>	 <!--enable_placement-->
-       <queue walltimemax="01:30:00" default="true">compute</queue>
+       <queue walltimemax="01:30:00" default="true">compute-30</queue> <!--                 0.14214 -->
+       <queue walltimemax="01:30:00" default="true">computep</queue>   <!--enable_placement 0.28428 -->
+       <queue walltimemax="01:30:00" default="true">compute</queue>    <!--                 0.28428 -->
+     </queues>
+   </batch_system>
+
+   <batch_system MACH="gcp12" type="slurm" >
+     <queues>
+       <queue walltimemax="01:30:00" default="true">c2dh112</queue>   <!-- c2d-highcpu-112     1.88984 -->
+       <queue walltimemax="01:30:00" default="true">c2d32</queue>     <!-- c2d-standard-32     0.30794 -->
+       <queue walltimemax="01:30:00" default="true">c2d56</queue>     <!-- c2d-standard-56     0.53889 -->
+       <queue walltimemax="01:30:00" default="true">c2o60</queue>     <!-- "old" c2-compute-60 0.28428 -->
+       <queue walltimemax="01:30:00" default="true">compute</queue>   <!-- c2d-standard-112    1.07776 -->
      </queues>
    </batch_system>
    
