@@ -445,7 +445,11 @@
       <command name="load">cray-hdf5-parallel/1.10.5.2</command>
       <command name="load">cray-parallel-netcdf/1.11.1.1</command>
     </modules>
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> c300256e2b (Merge in updates to machine files for running on Cori after maintenance)
     <modules>
       <command name="rm">cmake</command>
       <command name="load">cmake</command>
