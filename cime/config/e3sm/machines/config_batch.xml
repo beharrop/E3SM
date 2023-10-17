@@ -277,6 +277,12 @@
       </queues>
     </batch_system>
 
+    <batch_system MACH="chrysalis" type="slurm" >
+      <queues>
+        <queue walltimemax="03:00:00" nodemin="1" nodemax="512" default="true" strict="true">compute</queue>
+      </queues>
+    </batch_system>
+
     <batch_system MACH="bebop" type="slurm" >
       <queues>
 	<queue walltimemax="00:30:00" nodemin="1" nodemax="64" strict="true">debug</queue>
@@ -296,7 +302,18 @@
     </queues>
    </batch_system>
 
-  <batch_system MACH="edison" type="nersc_slurm" >
+   <batch_system MACH="pm-cpu" type="nersc_slurm">
+     <directives>
+       <directive> --constraint=cpu</directive>
+     </directives>
+     <queues>
+       <queue walltimemax="00:30:00" nodemin="1" nodemax="8" strict="true">debug</queue>
+       <queue walltimemax="00:35:00" nodemin="1" nodemax="4096" strict="true">preempt</queue>
+       <queue walltimemax="01:00:00" nodemin="1" nodemax="4096" default="true">regular</queue>
+     </queues>
+   </batch_system>
+
+   <batch_system MACH="edison" type="nersc_slurm" >
     <queues>
       <queue walltimemax="00:30:00" nodemin="1" nodemax="512" strict="true">debug</queue>
       <queue walltimemax="01:30:00" nodemin="1" nodemax="5519" default="true">regular</queue>
@@ -496,11 +513,15 @@
    <batch_system MACH="summit" type="lsf" >
      <directives>
        <directive>-P {{ project }}</directive>
-       <directive>-alloc_flags gpumps</directive>
-       <directive>-alloc_flags smt2</directive>
+     </directives>
+     <directives>
+       <directive>-alloc_flags "gpumps smt$SHELL{echo "(`./xmlquery --value MAX_TASKS_PER_NODE`+41)/42"|bc}"</directive>
      </directives>
      <queues>
-       <queue walltimemax="02:00" nodemin="0" nodemax="64" default="true">batch</queue>
+       <queue walltimemax="02:00" nodemin="1" nodemax="4608" strict="true" default="true">batch</queue>
+       <queue walltimemax="02:00" nodemin="1" nodemax="54" strict="true" default="false">batch-hm</queue>
+       <queue walltimemax="02:00" nodemin="1" nodemax="91" strict="true" default="false">killable</queue>
+       <queue walltimemax="02:00" nodemin="1" nodemax="4608" strict="true" default="false">debug</queue>
      </queues>
    </batch_system>
 
