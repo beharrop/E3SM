@@ -21,6 +21,7 @@ Table of Contents
 - [Contributing](#contributing)
 - [Acknowledge](#acknowledge)
 - [License](#license)
+- [CRE experiments](#creexperiments)
 
 Quick Start
 --------------------------------------------------------------------------------
@@ -74,3 +75,16 @@ License
 The E3SM model became open development at the time of first model and data release.
 Please see [LICENSE](LICENSE) for details.
 
+CRE experiments
+--------------------------------------------------------------------------------
+Documentation of CRE experiments can be found in the
+[overview document](https://egusphere.copernicus.org/preprints/2023/egusphere-2023-1555/)
+The experiment types available include the following:
+- disabling cloud-radiation interactions
+    - disabling SW atmospheric cloud radiative heating
+    - disabling LW atmospheric cloud radiative heating
+    - disabling SW surface cloud radiative effect
+    - disabling LW surface cloud radiative effect
+- cloud-locking
+- prescribed radiative heating
+- prescribed CREs
