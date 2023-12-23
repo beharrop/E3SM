@@ -5122,6 +5122,43 @@ The atm physics timestep for the run that produced the prescribed radiative heat
 Default: 0.0
 </entry>
 
+<!-- presc_cre : we add the prescribed mean CREs definitions here because
+                        they follow the model of prescribed ozone.           -->
+<entry id="presc_cre_datapath" type="char*256" input_pathname="abs"
+       category="cam_chem" group="presc_cre_nl" valid_values="" >
+Full pathname of the directory that contains the files specified in
+<varname>presc_cre_filelist</varname>.
+Default: None, do not prescribe mean CRE by default.
+</entry>
+
+<entry id="presc_cre_file" type="char*256"
+       input_pathname="rel:presc_cre_datapath" category="cam_chem"
+       group="presc_cre_nl" valid_values="" >
+Filename of dataset for prescribed mean CREs.
+Default: None, do not prescribe mean CREs by default.
+</entry>
+
+<entry id="presc_cre_type" type="char*32" category="cam_chem"
+       group="presc_cre_nl"
+       valid_values="CYCLICAL,SERIAL,INTERP_MISSING_MONTHS,FIXED" >
+Type of time interpolation for data in prescribed mean CRE files.
+Can be set to 'CYCLICAL', 'SERIAL', 'INTERP_MISSING_MONTHS', or 'FIXED'.
+Default: 'SERIAL'
+</entry>
+
+<entry id="presc_cre_num_file_years" type="real" category="cam_chem"
+       group="presc_cre_nl" valid_values="" >
+The number of years in the prescribed mean CRE data file
+if <varname>presc_cre_type</varname>  is 'CYCLICAL'.
+Default: 0.0
+</entry>
+
+<entry id="presc_cre_input_dtime" type="real" category="cam_chem"
+       group="presc_cre_nl" valid_values="" >
+The time offset needed to align the mean CRE data (in seconds)
+Default: 0.0
+</entry>
+
 <!-- prescribed_volcaero   -->
 
 <entry id="prescribed_volcaero_datapath" type="char*256" input_pathname="abs" category="cam_chem"

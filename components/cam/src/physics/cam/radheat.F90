@@ -73,8 +73,9 @@ subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
    use metdata, only: met_rlx, met_srf_feedback
 #endif
 !++BEH
-    use prescribed_radheat, only: has_presc_radheat
-    use physics_buffer, only : physics_buffer_desc, pbuf_get_field, pbuf_get_index
+    use prescribed_radheat, only : has_presc_radheat, presc_radheat_set_coefs
+    use physics_buffer,     only : physics_buffer_desc, pbuf_get_field, pbuf_get_index
+    use physconst,          only : cpair
 !--BEH
 !-----------------------------------------------------------------------
 ! Compute net radiative heating from qrs and qrl, and the associated net
@@ -112,6 +113,7 @@ subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
    integer :: index_fsnt, index_flnt, index_fsns, index_flns
    real(r8), pointer, dimension(:,:) :: qrs2d, qrl2d
    real(r8), pointer, dimension(:,:) :: fsnt2d, flnt2d, fsns2d, flns2d
+   real(r8) :: p_radht_coefs(pver)
 !--BEH
 !-----------------------------------------------------------------------
 
@@ -121,6 +123,9 @@ subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
 
 !++BEH
    if ( has_presc_radheat ) then
+
+      call presc_radheat_set_coefs(p_radht_coefs)
+
       index_qrs   = pbuf_get_index('p_QRS')
       index_qrl   = pbuf_get_index('p_QRL')
       index_fsnt  = pbuf_get_index('p_FSNT')
@@ -134,15 +139,21 @@ subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
       call pbuf_get_field(pbuf, index_flnt, flnt2d)
       call pbuf_get_field(pbuf, index_fsns, fsns2d)
       call pbuf_get_field(pbuf, index_flns, flns2d)
+
+      do k = 1, pver
+         do i = 1, ncol
+            qrs(i,k) = (1._r8 - p_radht_coefs(k)) * qrs(i,k) + &
+                       p_radht_coefs(k) * cpair * qrs2d(i,k)
+            qrl(i,k) = (1._r8 - p_radht_coefs(k)) * qrl(i,k) + &
+                       p_radht_coefs(k) * cpair * qrl2d(i,k)
+         end do
+      end do
+
       do i = 1, ncol
          fsnt(i) = fsnt2d(i,1)
          flnt(i) = flnt2d(i,1)
          fsns(i) = fsns2d(i,1)
          flns(i) = flns2d(i,1)
-         do k = 1, pver
-            qrs(i,k) = qrs2d(i,k)
-            qrl(i,k) = qrl2d(i,k)
-         end do
       end do
    end if
 !--BEH
