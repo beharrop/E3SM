@@ -32,6 +32,7 @@ module physpkg
   use prescribed_cloud, only: has_prescribed_cloud
   use prescribed_sfc_flux, only: has_presc_sfc_flux
   use prescribed_radheat, only:  has_presc_radheat
+  use prescribed_cre,   only: has_presc_cre
   use zm_conv,          only: do_zmconv_dcape_ull => trigdcape_ull, &
                               do_zmconv_dcape_only => trig_dcape_only
   use scamMod,          only: single_column, scm_crm_mode
@@ -146,6 +147,7 @@ subroutine phys_register
     use prescribed_cloud,   only: prescribed_cloud_register
     use prescribed_sfc_flux,only: presc_sfc_flux_register
     use prescribed_radheat, only: presc_radheat_register
+    use prescribed_cre,     only: presc_cre_register
     use prescribed_volcaero,only: prescribed_volcaero_register
     use prescribed_aero,    only: prescribed_aero_register
     use prescribed_ghg,     only: prescribed_ghg_register
@@ -276,6 +278,7 @@ subroutine phys_register
        call prescribed_cloud_register()
        call presc_sfc_flux_register()
        call presc_radheat_register()
+       call presc_cre_register()
        call prescribed_aero_register()
        call prescribed_ghg_register()
        call sslt_rebin_register
@@ -689,6 +692,7 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
     use prescribed_cloud,   only: prescribed_cloud_init
     use prescribed_sfc_flux,only: presc_sfc_flux_init
     use prescribed_radheat, only: presc_radheat_init
+    use prescribed_cre,     only: presc_cre_init
     use prescribed_ghg,     only: prescribed_ghg_init
     use prescribed_aero,    only: prescribed_aero_init
     use seasalt_model,      only: init_ocean_data, has_mam_mom
@@ -826,6 +830,7 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
     call prescribed_cloud_init(phys_state, pbuf2d)
     call presc_sfc_flux_init()
     call presc_radheat_init()
+    call presc_cre_init()
     call prescribed_ghg_init()
     call prescribed_aero_init()
     call aerodep_flx_init()
@@ -970,6 +975,7 @@ subroutine phys_run1(phys_state, ztodt, phys_tend, pbuf2d,  cam_in, cam_out)
 #endif
 !++BEH
     use prescribed_radheat, only: conserve_radiant_energy, has_presc_radheat
+    use prescribed_cre,     only: has_presc_cre
 !--BEH
 
     !
@@ -2811,6 +2817,7 @@ subroutine phys_timestep_init(phys_state, cam_out, pbuf2d)
   use prescribed_cloud,    only: prescribed_cloud_adv
   use prescribed_sfc_flux, only: presc_sfc_flux_adv
   use prescribed_radheat,  only: presc_radheat_adv
+  use prescribed_cre,      only: presc_cre_adv
   use prescribed_ghg,      only: prescribed_ghg_adv
   use prescribed_aero,     only: prescribed_aero_adv
   use aerodep_flx,         only: aerodep_flx_adv
@@ -2845,6 +2852,7 @@ subroutine phys_timestep_init(phys_state, cam_out, pbuf2d)
   call prescribed_cloud_adv(phys_state, pbuf2d)
   call presc_sfc_flux_adv(phys_state, pbuf2d)
   call presc_radheat_adv(phys_state, pbuf2d)
+  call presc_cre_adv(phys_state, pbuf2d)
   call prescribed_ghg_adv(phys_state, pbuf2d)
   call prescribed_aero_adv(phys_state, pbuf2d)
   call aircraft_emit_adv(phys_state, pbuf2d)

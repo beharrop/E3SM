@@ -31,6 +31,7 @@ use cam_logfile,     only: iulog
 use rad_constituents, only: N_DIAG, rad_cnst_get_call_list, rad_cnst_get_info
 use radconstants,     only: rrtmg_sw_cloudsim_band, rrtmg_lw_cloudsim_band, nswbands, nlwbands
 use prescribed_cloud, only: has_prescribed_cloud  ! cloud_locking
+use prescribed_cre,   only: has_presc_cre         ! precribed mean CREs
 
 implicit none
 private
@@ -62,6 +63,22 @@ integer :: cldfsnow_idx = 0
 integer :: cld_idx      = 0 
 integer :: concld_idx   = 0
 integer :: i_dei, i_mu, i_lambda, i_iciwp, i_iclwp, i_des, i_icswp ! cloud_locking
+
+!++BEH
+integer :: index_qrs_cld
+integer :: index_qrl_cld
+integer :: index_swcf
+integer :: index_lwcf
+integer :: index_swcf_sfc
+integer :: index_lwcf_sfc
+
+real(r8), pointer, dimension(:,:) :: qrs_cld
+real(r8), pointer, dimension(:,:) :: qrl_cld
+real(r8), pointer, dimension(:,:) :: fsnt_cld
+real(r8), pointer, dimension(:,:) :: flnt_cld
+real(r8), pointer, dimension(:,:) :: fsns_cld
+real(r8), pointer, dimension(:,:) :: flns_cld
+!--BEH
 
 ! Default values for namelist variables
 
@@ -1169,6 +1186,31 @@ end function radiation_nextsw_cday
     call pbuf_get_field(pbuf, qrs_idx,      qrs)
     call pbuf_get_field(pbuf, qrl_idx,      qrl)
 
+!++BEH
+    if (has_presc_cre) then
+       index_qrs_cld  = pbuf_get_index('p_QRS_CLD')
+       index_qrl_cld  = pbuf_get_index('p_QRL_CLD')
+       index_swcf     = pbuf_get_index('p_SWCF')
+       index_lwcf     = pbuf_get_index('p_LWCF')
+       index_swcf_sfc = pbuf_get_index('p_SWCF_SFC')
+       index_lwcf_sfc = pbuf_get_index('p_LWCF_SFC')
+
+       call pbuf_get_field(pbuf, index_qrs_cld,  qrs_cld)
+       call pbuf_get_field(pbuf, index_qrl_cld,  qrl_cld)
+       call pbuf_get_field(pbuf, index_swcf,     fsnt_cld)
+       call pbuf_get_field(pbuf, index_lwcf,     flnt_cld)
+       call pbuf_get_field(pbuf, index_swcf_sfc, fsns_cld)
+       call pbuf_get_field(pbuf, index_lwcf_sfc, flns_cld)
+
+       call outfld('INFLX_QRS_CLD',  qrs_cld,  pcols, lchnk)
+       call outfld('INFLX_QRL_CLD',  qrl_cld,  pcols, lchnk)
+       call outfld('INFLX_SWCF',     fsnt_cld, pcols, lchnk)
+       call outfld('INFLX_LWCF',     flnt_cld, pcols, lchnk)
+       call outfld('INFLX_SWCF_SFC', fsns_cld, pcols, lchnk)
+       call outfld('INFLX_LWCF_SFC', flns_cld, pcols, lchnk)
+    end if
+!--BEH
+
     if (spectralflux) then
       call pbuf_get_field(pbuf, su_idx, su)
       call pbuf_get_field(pbuf, sd_idx, sd)
@@ -1777,6 +1819,21 @@ end function radiation_nextsw_cday
     end if
     if (no_cloud_sw_radheat_atm) then
        qrs = qrsc
+    end if
+
+    if (has_presc_cre) then
+       do k = 1, pver
+          do i = 1, ncol
+             qrs(i,k) = (cpair * qrs_cld(i,k)) + qrsc(i,k)
+             qrl(i,k) = (cpair * qrl_cld(i,k)) + qrlc(i,k)
+          end do
+       end do
+       do i = 1, ncol
+          fsnt(i) = fsnt_cld(i,1) + fsntc(i)
+          flnt(i) = flnt_cld(i,1) + flntc(i)
+          fsns(i) = fsns_cld(i,1) + fsnsc(i)
+          flns(i) = flns_cld(i,1) + flnsc(i)
+       end do
     end if
 
     call t_startf ('radheat_tend')
