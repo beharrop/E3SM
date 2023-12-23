@@ -33,7 +33,6 @@ module prescribed_cre
   public presc_cre_register
   public presc_cre_init
   public presc_cre_adv
-  public conserve_cloudrad_energy
   public has_presc_cre
 
   logical :: has_presc_cre = .false.
@@ -61,7 +60,6 @@ module prescribed_cre
    character(len=16)            :: spc_name_list(nflds)
    character(len=cl)            :: spc_flist(nflds), spc_fnames(nflds)
    character(len=8)             :: dim1name, dim2name
-   character(len=24)            :: air_type           = 'CYCLICAL_LIST' ! 'CYCLICAL_LIST'
 !--BEH
 
 !--------------------------------------------------------------------------------------------------
@@ -446,10 +444,8 @@ subroutine presc_cre_init()
     !------------------------------------------------------------------
     !       Initialize the radiative file processing
     !------------------------------------------------------------------
-!++BEH
-!    do m=1,aircraft_cnt
+
     do m=1,nflds
-!--BEH
 
        number_flds = 0
 !       if(horz_native(index_map(m))) then
@@ -503,10 +499,9 @@ subroutine presc_cre_adv(state, pbuf2d)
    !------------------------------------------------------------------
    ! Return if no radiative flux file
    !------------------------------------------------------------------
-!++BEH
-!    if (aircraft_cnt == 0 ) return
+
     if( .not. has_presc_cre ) return
-!--BEH
+
     call t_startf('All_prescribed_cloud_radiative_effects')
 
     !-------------------------------------------------------------------
@@ -522,11 +517,6 @@ subroutine presc_cre_adv(state, pbuf2d)
        !following call just reads in time slices in horizontal
        !vertical interpolation is done in the next call
        call advance_native_grid_data( natgrid_cre_in(m) )
-
-       !BEH -- call subroutine to conserve cloudrad energy
-       !BEH -- No, don't do this here.  Need all of the variables already read in
-       !       This is still part of the variable loop.
-       !call conserve_cloudrad_energy(state, pbuf_ndx, native_grid_frc_air(m), pbuf2d)
 
        !$OMP PARALLEL DO PRIVATE (C, NCOL, TMPPTR_NATIVE_GRID, PBUF_CHNK)
        do c = begchunk, endchunk
@@ -665,132 +655,6 @@ subroutine advance_native_grid_data( native_grid_strct )
 !--BEH
     
 end subroutine advance_native_grid_data
-
-
-  subroutine conserve_cloudrad_energy( state, pbuf2d )
-
-    !-------------------------------------------------------------------
-    !    This subroutine modifies QRL and QRS to conserve energy 
-    !    relative to FLNS-FLNT and FSNT-FSNS, respectively.
-    !    The data is stored in pbuf
-    ! called by: presc_cre_adv (local)
-    !-------------------------------------------------------------------
-
-    use physics_types,  only: physics_state
-    use ppgrid,         only: begchunk, endchunk
-    use physics_buffer, only: physics_buffer_desc, pbuf_get_field, &
-                              pbuf_get_chunk, pbuf_get_index
-    use ppgrid,         only: pver, pcols
-    use physconst,      only: rga
-    use cam_history,    only: outfld
-
-    implicit none
-
-
-    !args
-!    type(physics_state), intent(in)        :: state(begchunk:endchunk)
-!    type(physics_buffer_desc), pointer     :: pbuf2d(:,:)
-    type(physics_state), intent(in   ), dimension(begchunk:endchunk) :: state
-    type(physics_buffer_desc),    pointer    :: pbuf2d(:,:)
-
-    !local vars
-    type(physics_buffer_desc), pointer     :: pbuf_chnk(:)
-
-    integer  :: ichnk, ncol, icol, kver, lchnk
-
-    real(r8) :: sw_net,    lw_net
-    real(r8) :: sw_vrtint, lw_vrtint
-    real(r8) :: sw_ratio,  lw_ratio
-    real(r8) :: qrs_scaled(pcols, pver), qrl_scaled(pcols, pver)
-
-    integer  :: index_qrs, index_qrl
-    integer  :: index_fsnt, index_flnt, index_fsns, index_flns
-
-!Bx    real(r8), pointer, dimension(:,:) :: qrs, qrl
-!Bx    real(r8), pointer, dimension(:)   :: fsnt, flnt, fsns, flns
-    real(r8), pointer, dimension(:,:) :: qrs, qrl, fsnt, flnt, fsns, flns
-
-    ! Read in the prescribed clouds radiative effects from pbuf
-    ! Compute scaling factor such that QRS and QRL integrate
-    !     to TOA - SFC boundary fluxes
-    ! Scale QRS and QRL accordingly
-    ! Store scaled QRS and QRL in pbuf
-
-    if ( .not. has_presc_cre ) return
-
-    if ( masterproc ) then
-        write(iulog,*) 'Beginning to do conserve_cloudrad_energy routine'
-    endif
-
-    do ichnk = begchunk, endchunk
-       ncol        = state(ichnk)%ncol
-       pbuf_chnk  => pbuf_get_chunk(pbuf2d, ichnk)
-
-       index_qrs   = pbuf_get_index('p_QRS_CLD')
-       index_qrl   = pbuf_get_index('p_QRL_CLD')
-       index_fsnt  = pbuf_get_index('p_SWCF')
-       index_flnt  = pbuf_get_index('p_LWCF')
-       index_fsns  = pbuf_get_index('p_SWCF_SFC')
-       index_flns  = pbuf_get_index('p_LWCF_SFC')
-
-       call pbuf_get_field(pbuf_chnk, index_qrs,  qrs)
-       call pbuf_get_field(pbuf_chnk, index_qrl,  qrl)
-       call pbuf_get_field(pbuf_chnk, index_fsnt, fsnt)
-       call pbuf_get_field(pbuf_chnk, index_flnt, flnt)
-       call pbuf_get_field(pbuf_chnk, index_fsns, fsns)
-       call pbuf_get_field(pbuf_chnk, index_flns, flns)
-
-!BZ       do icol = 1, ncol
-!BZ          ! Zero out all the temp fields
-!BZ          sw_net    = 0._r8
-!BZ          lw_net    = 0._r8
-!BZ          sw_vrtint = 0._r8
-!BZ          lw_vrtint = 0._r8
-!BZ          sw_ratio  = 0._r8
-!Z          lw_ratio  = 0._r8
-!Z
-!Z          ! For each column do the scaling
-!Z!Bx          sw_net = fsnt(icol) - fsns(icol)
-!Z!Bx          lw_net = flns(icol) - flnt(icol)
-!Z          sw_net = fsnt(icol,1) - fsns(icol,1)
-!Z          lw_net = flns(icol,1) - flnt(icol,1)
-!Z          do kver = 1, pver
-!Z             sw_vrtint = sw_vrtint + (qrs(icol, kver) * &
-!Z                  state(ichnk)%pdel(icol, kver) * rga)
-!Z             lw_vrtint = lw_vrtint + (qrl(icol, kver) * &
-!Z                  state(ichnk)%pdel(icol, kver) * rga)
-!Z          end do ! kver = 1, pver
-!Z          if (sw_vrtint == 0._r8) then
-!Z             sw_ratio = 0._r8 ! Need to prevent NaNs during polar night
-!Z          else
-!Z             sw_ratio = sw_net / sw_vrtint
-!Z          end if
-!Z          lw_ratio = lw_net / lw_vrtint
-!Z
-!Z          do kver = 1, pver
-!Z             qrs_scaled(icol, kver) = qrs(icol, kver) * sw_ratio
-!Z             qrl_scaled(icol, kver) = qrl(icol, kver) * lw_ratio
-!Z          end do ! kver = 1, pver
-!Z       end do ! icol = 1, ncol
-!Z
-!Z       lchnk = state(ichnk)%lchnk
-!BZ       call outfld('INFLX_QRS_CLD',  qrs_scaled(:ncol,:), ncol, lchnk)
-!BZ       call outfld('INFLX_QRL_CLD',  qrl_scaled(:ncol,:), ncol, lchnk)
-       call outfld('INFLX_QRS_CLD',  qrs(:ncol,:), ncol, lchnk)
-       call outfld('INFLX_QRL_CLD',  qrl(:ncol,:), ncol, lchnk)
-       call outfld('INFLX_SWCF',     fsnt(:ncol,:), ncol, lchnk)
-       call outfld('INFLX_LWCF',     flnt(:ncol,:), ncol, lchnk)
-       call outfld('INFLX_SWCF_SFC', fsns(:ncol,:), ncol, lchnk)
-       call outfld('INFLX_LWCF_SFC', flns(:ncol,:), ncol, lchnk)
-
-!BZ       qrs(:ncol, :) = qrs_scaled(:ncol, :)
-!BZ       qrl(:ncol, :) = qrl_scaled(:ncol, :)
-
-    end do ! ichnk = begchunk, endchunk
-
-
-  end subroutine conserve_cloudrad_energy
-
 
 end module prescribed_cre
 
