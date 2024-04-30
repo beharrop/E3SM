@@ -869,6 +869,18 @@ end function radiation_nextsw_cday
     call addfld('CLD_rad'     , (/ 'lev' /), 'A', 'fraction', 'CLD      output from radiation')
     call addfld('CLDFSNOW_rad', (/ 'lev' /), 'A', 'fraction', 'CLDFSNOW output from radiation')
     call addfld('CONCLD_rad'  , (/ 'lev' /), 'A', 'fraction', 'CONCLD   output from radiation')
+    !++BEH
+    call addfld('DEI_rad2'     , (/ 'lev' /), 'A',   'micron', 'DEI      output from cloud_rad_props')
+    call addfld('MU_rad2'      , (/ 'lev' /), 'A',        '1', 'MU       output from cloud_rad_props')
+    call addfld('LAMBDAC_rad2' , (/ 'lev' /), 'A',      '1/m', 'LAMBDAC  output from cloud_rad_props')
+    call addfld('ICIWP_rad2'   , (/ 'lev' /), 'A',    'kg/m2', 'ICIWP    output from cloud_rad_props')
+    call addfld('ICLWP_rad2'   , (/ 'lev' /), 'A',    'kg/m2', 'ICLWP    output from cloud_rad_props')
+    call addfld('DES_rad2'     , (/ 'lev' /), 'A',   'micron', 'DES      output from cloud_rad_props')
+    call addfld('ICSWP_rad2'   , (/ 'lev' /), 'A',    'kg/m2', 'ICSWP    output from cloud_rad_props')
+    call addfld('CLD_rad2'     , (/ 'lev' /), 'A', 'fraction', 'CLD      output from cloud_rad_props')
+    call addfld('CLDFSNOW_rad2', (/ 'lev' /), 'A', 'fraction', 'CLDFSNOW output from cloud_rad_props')
+    call addfld('CONCLD_rad2'  , (/ 'lev' /), 'A', 'fraction', 'CONCLD   output from cloud_rad_props')
+    !--BEH
 
   end subroutine radiation_init
 

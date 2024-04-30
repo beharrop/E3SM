@@ -17,6 +17,10 @@ use cam_logfile,      only: iulog
 
 use interpolate_data, only: interp_type, lininterp_init, lininterp, &
      extrap_method_bndry, lininterp_finish
+!++BEH
+use spmd_utils,       only: masterproc
+use cam_history,      only: outfld
+!--BEH
 
 implicit none
 private
@@ -51,7 +55,10 @@ real(r8), allocatable :: abs_lw_ice(:,:)
 ! 
 ! indexes into pbuf for optical parameters of MG clouds
 ! 
-   integer :: i_dei, i_mu, i_lambda, i_iciwp, i_iclwp, i_des, i_icswp
+integer :: i_dei, i_mu, i_lambda, i_iciwp, i_iclwp, i_des, i_icswp
+!++BEH
+integer :: i_cld, i_cldfsnow, i_concld
+!--BEH
 
 ! indexes into constituents for old optics
    integer :: &
@@ -108,6 +115,11 @@ subroutine cloud_rad_props_init()
       i_iclwp  = pbuf_get_index('ICLWP_rad',errcode=err)
       i_des    = pbuf_get_index('DES_rad',errcode=err)
       i_icswp  = pbuf_get_index('ICSWP_rad',errcode=err)
+      !++BEH
+      i_cld    = pbuf_get_index('CLD_rad')
+      i_concld = pbuf_get_index('CONCLD_rad')
+      i_cldfsnow = pbuf_get_index('CLDFSNOW_rad',errcode=err)
+      !--BEH
    else
       i_dei    = pbuf_get_index('DEI',errcode=err)
       i_mu     = pbuf_get_index('MU',errcode=err)
@@ -116,6 +128,11 @@ subroutine cloud_rad_props_init()
       i_iclwp  = pbuf_get_index('ICLWP',errcode=err)
       i_des    = pbuf_get_index('DES',errcode=err)
       i_icswp  = pbuf_get_index('ICSWP',errcode=err)
+      !++BEH
+      i_cld    = pbuf_get_index('CLD')
+      i_cldfsnow = pbuf_get_index('CLDFSNOW', errcode=err)
+      i_concld = pbuf_get_index('CONCLD')
+      !--BEH
    endif
 
    ! old optics
@@ -541,6 +558,10 @@ subroutine get_liquid_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
    real(r8),intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
 
    real(r8), pointer, dimension(:,:) :: lamc, pgam, iclwpth
+   !++BEH
+   real(r8), pointer, dimension(:,:) :: cld, concld, cldfsnow
+   real(r8), pointer, dimension(:,:) :: dei, des, iciwp, icswp
+   !--BEH
    real(r8), dimension(pcols,pver) :: kext
    integer i,k,swband,lchnk,ncol
 
@@ -551,6 +572,35 @@ subroutine get_liquid_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
    call pbuf_get_field(pbuf, i_lambda,  lamc)
    call pbuf_get_field(pbuf, i_mu,      pgam)
    call pbuf_get_field(pbuf, i_iclwp,   iclwpth)
+   !++BEH
+   call pbuf_get_field(pbuf, i_cld,      cld)
+   call pbuf_get_field(pbuf, i_concld,   concld)
+   call pbuf_get_field(pbuf, i_cldfsnow, cldfsnow)
+   call pbuf_get_field(pbuf, i_dei,      dei)
+   call pbuf_get_field(pbuf, i_des,      des)
+   call pbuf_get_field(pbuf, i_iciwp,    iciwp)
+   call pbuf_get_field(pbuf, i_icswp,    icswp)
+   !--BEH
+
+   !++BEH
+   if(masterproc) then
+      write(iulog, *)'lat is', state%lat(:ncol)
+      write(iulog, *)'lon is', state%lon(:ncol)
+      write(iulog, *)'65th level lambda is', lamc(:ncol,65)
+      write(iulog, *)'65th level mu     is', pgam(:ncol,65)
+      write(iulog, *)'65th level iclwp  is', iclwpth(:ncol,65)
+   end if
+   call outfld('MU_rad2',       pgam,      pcols, lchnk)
+   call outfld('LAMBDAC_rad2',  lamc,      pcols, lchnk)
+   call outfld('ICLWP_rad2',    iclwpth,   pcols, lchnk)
+   call outfld('CLD_rad2',      cld,       pcols, lchnk)
+   call outfld('CONCLD_rad2',   concld,    pcols, lchnk)
+   call outfld('CLDFSNOW_rad2', cldfsnow,  pcols, lchnk)
+   call outfld('ICIWP_rad2',    iciwp,     pcols, lchnk)
+   call outfld('DEI_rad2',      dei,       pcols, lchnk)
+   call outfld('DES_rad2',      des,       pcols, lchnk)
+   call outfld('ICSWP_rad2',    icswp,     pcols, lchnk)
+   !--BEH
    
    do k = 1,pver
       do i = 1,ncol
