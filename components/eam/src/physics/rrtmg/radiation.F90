@@ -859,16 +859,26 @@ end function radiation_nextsw_cday
     endif
 
 ! cloud_locking : allow output for cloud-locking data
-    call addfld('DEI_rad'     , (/ 'lev' /), 'A',   'micron', 'DEI      output from radiation')
-    call addfld('MU_rad'      , (/ 'lev' /), 'A',        '1', 'MU       output from radiation')
-    call addfld('LAMBDAC_rad' , (/ 'lev' /), 'A',      '1/m', 'LAMBDAC  output from radiation')
-    call addfld('ICIWP_rad'   , (/ 'lev' /), 'A',    'kg/m2', 'ICIWP    output from radiation')
-    call addfld('ICLWP_rad'   , (/ 'lev' /), 'A',    'kg/m2', 'ICLWP    output from radiation')
-    call addfld('DES_rad'     , (/ 'lev' /), 'A',   'micron', 'DES      output from radiation')
-    call addfld('ICSWP_rad'   , (/ 'lev' /), 'A',    'kg/m2', 'ICSWP    output from radiation')
-    call addfld('CLD_rad'     , (/ 'lev' /), 'A', 'fraction', 'CLD      output from radiation')
-    call addfld('CLDFSNOW_rad', (/ 'lev' /), 'A', 'fraction', 'CLDFSNOW output from radiation')
-    call addfld('CONCLD_rad'  , (/ 'lev' /), 'A', 'fraction', 'CONCLD   output from radiation')
+    call addfld('DEI_rad'     , (/ 'lev' /), 'A',   'micron', 'DEI      output from radiation', &
+                sampling_seq='rad_lwsw', flag_xyfill=.true.)
+    call addfld('MU_rad'      , (/ 'lev' /), 'A',        '1', 'MU       output from radiation', &
+                sampling_seq='rad_lwsw', flag_xyfill=.true.)
+    call addfld('LAMBDAC_rad' , (/ 'lev' /), 'A',      '1/m', 'LAMBDAC  output from radiation', &
+                sampling_seq='rad_lwsw', flag_xyfill=.true.)
+    call addfld('ICIWP_rad'   , (/ 'lev' /), 'A',    'kg/m2', 'ICIWP    output from radiation', &
+                sampling_seq='rad_lwsw', flag_xyfill=.true.)
+    call addfld('ICLWP_rad'   , (/ 'lev' /), 'A',    'kg/m2', 'ICLWP    output from radiation', &
+                sampling_seq='rad_lwsw', flag_xyfill=.true.)
+    call addfld('DES_rad'     , (/ 'lev' /), 'A',   'micron', 'DES      output from radiation', &
+                sampling_seq='rad_lwsw', flag_xyfill=.true.)
+    call addfld('ICSWP_rad'   , (/ 'lev' /), 'A',    'kg/m2', 'ICSWP    output from radiation', &
+                sampling_seq='rad_lwsw', flag_xyfill=.true.)
+    call addfld('CLD_rad'     , (/ 'lev' /), 'A', 'fraction', 'CLD      output from radiation', &
+                sampling_seq='rad_lwsw', flag_xyfill=.true.)
+    call addfld('CLDFSNOW_rad', (/ 'lev' /), 'A', 'fraction', 'CLDFSNOW output from radiation', &
+                sampling_seq='rad_lwsw', flag_xyfill=.true.)
+    call addfld('CONCLD_rad'  , (/ 'lev' /), 'A', 'fraction', 'CONCLD   output from radiation', &
+                sampling_seq='rad_lwsw', flag_xyfill=.true.)
 
   end subroutine radiation_init
 
@@ -1171,17 +1181,6 @@ end function radiation_nextsw_cday
     call pbuf_get_field(pbuf, i_iclwp,  iclwp )
     call pbuf_get_field(pbuf, i_des,    des   )
     call pbuf_get_field(pbuf, i_icswp,  icswp )
-! Output fields that will later be used as radiation boundary data
-    call outfld('DEI_rad',      dei,       pcols, lchnk)
-    call outfld('MU_rad',       mu,        pcols, lchnk)
-    call outfld('LAMBDAC_rad',  lambda,    pcols, lchnk)
-    call outfld('ICIWP_rad',    iciwp,     pcols, lchnk)
-    call outfld('ICLWP_rad',    iclwp,     pcols, lchnk)
-    call outfld('DES_rad',      des,       pcols, lchnk)
-    call outfld('ICSWP_rad',    icswp,     pcols, lchnk)
-    call outfld('CLD_rad',      cld,       pcols, lchnk)
-    call outfld('CLDFSNOW_rad', cldfsnow,  pcols, lchnk)
-    call outfld('CONCLD_rad',   concld,    pcols, lchnk)
 
     call pbuf_get_field(pbuf, qrs_idx,      qrs)
     call pbuf_get_field(pbuf, qrl_idx,      qrl)
@@ -1259,6 +1258,18 @@ end function radiation_nextsw_cday
     dolw     = radiation_do('lw')      ! do longwave heating calc this timestep?
 
     if (dosw .or. dolw) then
+
+       ! Output fields that will later be used as radiation boundary data
+       call outfld('DEI_rad',      dei,       pcols, lchnk)
+       call outfld('MU_rad',       mu,        pcols, lchnk)
+       call outfld('LAMBDAC_rad',  lambda,    pcols, lchnk)
+       call outfld('ICIWP_rad',    iciwp,     pcols, lchnk)
+       call outfld('ICLWP_rad',    iclwp,     pcols, lchnk)
+       call outfld('DES_rad',      des,       pcols, lchnk)
+       call outfld('ICSWP_rad',    icswp,     pcols, lchnk)
+       call outfld('CLD_rad',      cld,       pcols, lchnk)
+       call outfld('CLDFSNOW_rad', cldfsnow,  pcols, lchnk)
+       call outfld('CONCLD_rad',   concld,    pcols, lchnk)
 
        ! construct an RRTMG state object
        r_state => rrtmg_state_create( state, cam_in )
