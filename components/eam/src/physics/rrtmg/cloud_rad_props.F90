@@ -102,15 +102,25 @@ subroutine cloud_rad_props_init()
    call ec_rad_props_init
    call oldcloud_init
 
-   i_dei    = pbuf_get_index('DEI',errcode=err)
-   i_mu     = pbuf_get_index('MU',errcode=err)
-   i_lambda = pbuf_get_index('LAMBDAC',errcode=err)
-   i_iciwp  = pbuf_get_index('ICIWP',errcode=err)
-   i_iclwp  = pbuf_get_index('ICLWP',errcode=err)
+   if (has_prescribed_cloud) then
+      i_dei    = pbuf_get_index('DEI_rad',errcode=err)
+      i_mu     = pbuf_get_index('MU_rad',errcode=err)
+      i_lambda = pbuf_get_index('LAMBDAC_rad',errcode=err)
+      i_iciwp  = pbuf_get_index('ICIWP_rad',errcode=err)
+      i_iclwp  = pbuf_get_index('ICLWP_rad',errcode=err)
+         i_des    = pbuf_get_index('DES_rad',errcode=err)
+         i_icswp  = pbuf_get_index('ICSWP_rad',errcode=err)
+   else
+      i_dei    = pbuf_get_index('DEI',errcode=err)
+      i_mu     = pbuf_get_index('MU',errcode=err)
+      i_lambda = pbuf_get_index('LAMBDAC',errcode=err)
+      i_iciwp  = pbuf_get_index('ICIWP',errcode=err)
+      i_iclwp  = pbuf_get_index('ICLWP',errcode=err)
 !   if (microp_scheme.ne.'P3') then !AaronDonahue TODO: P3 doesn't have snow
-      i_des    = pbuf_get_index('DES',errcode=err)
-      i_icswp  = pbuf_get_index('ICSWP',errcode=err)
+         i_des    = pbuf_get_index('DES',errcode=err)
+         i_icswp  = pbuf_get_index('ICSWP',errcode=err)
 !   endif
+   end if
 
    ! old optics
    call cnst_get_ind('CLDICE', ixcldice)

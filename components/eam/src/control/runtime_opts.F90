@@ -262,6 +262,9 @@ contains
    use tropopause,          only: tropopause_readnl
    use aoa_tracers,         only: aoa_tracers_readnl
    use prescribed_ozone,    only: prescribed_ozone_readnl
+   use prescribed_cloud,    only: prescribed_cloud_readnl
+   use prescribed_radheat,  only: presc_radheat_readnl
+   use prescribed_cre,      only: presc_cre_readnl
    use prescribed_aero,     only: prescribed_aero_readnl
    use prescribed_ghg,      only: prescribed_ghg_readnl
    use read_spa_data,       only: spa_readnl
@@ -530,6 +533,9 @@ contains
    call aoa_tracers_readnl(nlfilename)
    call aerodep_flx_readnl(nlfilename)
    call prescribed_ozone_readnl(nlfilename)
+   call prescribed_cloud_readnl(nlfilename)
+   call presc_radheat_readnl(nlfilename)
+   call presc_cre_readnl(nlfilename)
    call prescribed_aero_readnl(nlfilename)
    call spa_readnl(nlfilename)
    call prescribed_ghg_readnl(nlfilename)

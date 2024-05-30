@@ -32,6 +32,9 @@ module physpkg
 
   use cam_control_mod,  only: ideal_phys, adiabatic
   use phys_control,     only: phys_do_flux_avg, phys_getopts, waccmx_is
+  use prescribed_cloud, only: has_prescribed_cloud
+  use prescribed_radheat, only:  has_presc_radheat
+  use prescribed_cre,   only: has_presc_cre
   use zm_conv,          only: do_zmconv_dcape_ull => trigdcape_ull, &
                               do_zmconv_dcape_only => trig_dcape_only
   use iop_data_mod,     only: single_column
@@ -161,6 +164,9 @@ subroutine phys_register
     use ionosphere,         only: ionos_register
     use string_utils,       only: to_lower
     use prescribed_ozone,   only: prescribed_ozone_register
+    use prescribed_cloud,   only: prescribed_cloud_register
+    use prescribed_radheat, only: presc_radheat_register
+    use prescribed_cre,     only: presc_cre_register
     use prescribed_volcaero,only: prescribed_volcaero_register
     use prescribed_aero,    only: prescribed_aero_register
     use read_spa_data,      only: read_spa_data_register
@@ -322,6 +328,9 @@ subroutine phys_register
        end if
        call prescribed_volcaero_register()
        call prescribed_ozone_register()
+       call prescribed_cloud_register()
+       call presc_radheat_register()
+       call presc_cre_register()
        call prescribed_aero_register()
        call read_spa_data_register()
        call prescribed_ghg_register()
@@ -731,6 +740,9 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
     use check_energy,       only: check_energy_init
     use chemistry,          only: chem_init
     use prescribed_ozone,   only: prescribed_ozone_init
+    use prescribed_cloud,   only: prescribed_cloud_init
+    use prescribed_radheat, only: presc_radheat_init
+    use prescribed_cre,     only: presc_cre_init
     use prescribed_ghg,     only: prescribed_ghg_init
     use prescribed_aero,    only: prescribed_aero_init
     use read_spa_data,      only: read_spa_data_init
@@ -878,6 +890,10 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
 
     ! Prescribed tracers
     call prescribed_ozone_init()
+    call prescribed_cloud_init(phys_state, pbuf2d)
+    call presc_sfc_flux_init()
+    call presc_radheat_init()
+    call presc_cre_init()
     call prescribed_ghg_init()
     call prescribed_aero_init()
     call read_spa_data_init()
@@ -1048,6 +1064,7 @@ subroutine phys_run1(phys_state, ztodt, phys_tend, pbuf2d,  cam_in, cam_out, phy
 #if ( defined OFFLINE_DYN )
      use metdata,       only: get_met_srf1
 #endif
+    use prescribed_radheat, only: conserve_radiant_energy, has_presc_radheat
 
     !
     ! Input arguments
@@ -1126,6 +1143,10 @@ subroutine phys_run1(phys_state, ztodt, phys_tend, pbuf2d,  cam_in, cam_out, phy
        call t_startf('phys_timestep_init')
        call phys_timestep_init( phys_state, cam_out, pbuf2d)
        call t_stopf('phys_timestep_init')
+
+       if ( has_presc_radheat ) then
+          call conserve_radiant_energy(phys_state, pbuf2d)
+       end if
 
        call t_stopf ('physpkg_st1')
 
@@ -3143,6 +3164,9 @@ subroutine phys_timestep_init(phys_state, cam_out, pbuf2d)
   use perf_mod
 
   use prescribed_ozone,    only: prescribed_ozone_adv
+  use prescribed_cloud,    only: prescribed_cloud_adv
+  use prescribed_radheat,  only: presc_radheat_adv
+  use prescribed_cre,      only: presc_cre_adv
   use prescribed_ghg,      only: prescribed_ghg_adv
   use prescribed_aero,     only: prescribed_aero_adv
   use read_spa_data,       only: read_spa_data_adv
@@ -3176,6 +3200,9 @@ subroutine phys_timestep_init(phys_state, cam_out, pbuf2d)
 
   ! Prescribed tracers
   call prescribed_ozone_adv(phys_state, pbuf2d)
+  call prescribed_cloud_adv(phys_state, pbuf2d)
+  call presc_radheat_adv(phys_state, pbuf2d)
+  call presc_cre_adv(phys_state, pbuf2d)
   call prescribed_ghg_adv(phys_state, pbuf2d)
   call prescribed_aero_adv(phys_state, pbuf2d)
   call read_spa_data_adv(phys_state, pbuf2d)
