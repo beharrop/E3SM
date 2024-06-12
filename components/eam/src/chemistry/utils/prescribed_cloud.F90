@@ -36,12 +36,15 @@ module prescribed_cloud
   public :: prescribed_cloud_readnl
 
   logical :: has_prescribed_cloud = .false.
-  integer          , parameter :: nflds             = 10
-  character(len=16), parameter :: cloud_name(nflds) = (/'DEI_rad'   ,'MU_rad'  ,'LAMBDAC_rad' ,'ICIWP_rad' ,'ICLWP_rad' ,'DES_rad' , &
-                                                        'ICSWP_rad' ,'CLD_rad', 'CLDFSNOW_rad', 'CONCLD_rad' /)
+!  integer          , parameter :: nflds             = 10
+  integer          , parameter :: nflds             = 7
+!  character(len=16), parameter :: cloud_name(nflds) = (/'DEI_rad'   ,'MU_rad'  ,'LAMBDAC_rad' ,'ICIWP_rad' ,'ICLWP_rad' ,'DES_rad' , &
+!                                                        'ICSWP_rad' ,'CLD_rad', 'CLDFSNOW_rad', 'CONCLD_rad' /)
+  character(len=16), parameter :: cloud_name(nflds) = (/'DEI_rad'   ,'MU_rad'  ,'LAMBDAC_rad' ,'ICIWP_rad' ,'ICLWP_rad' , &
+                                                        'CLD_rad', 'CONCLD_rad' /)
 
-  character(len=16)  :: fld_name(nflds)             = (/'DEI_rad'  ,'MU_rad' ,'LAMBDAC_rad','ICIWP_rad','ICLWP_rad','DES_rad', &
-                                                        'ICSWP_rad','CLD_rad', 'CLDFSNOW_rad', 'CONCLD_rad'/)
+!  character(len=16)  :: fld_name(nflds)             = (/'DEI_rad'  ,'MU_rad' ,'LAMBDAC_rad','ICIWP_rad','ICLWP_rad','DES_rad', &
+!                                                        'ICSWP_rad','CLD_rad', 'CLDFSNOW_rad', 'CONCLD_rad'/)
   character(len=256) :: filename                    = ' '
   character(len=256) :: filelist                    = ' '
   character(len=256) :: datapath                    = ' '

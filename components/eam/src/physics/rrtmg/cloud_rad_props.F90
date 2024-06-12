@@ -76,6 +76,7 @@ subroutine cloud_rad_props_init()
    use slingo,         only: slingo_rad_props_init
    use ebert_curry,    only: ec_rad_props_init, scalefactor
    use phys_control,   only: phys_getopts
+   use prescribed_cloud, only: has_prescribed_cloud
 
    character(len=256) :: liquidfile 
    character(len=256) :: icefile 

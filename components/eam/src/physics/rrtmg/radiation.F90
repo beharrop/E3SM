@@ -1169,8 +1169,8 @@ end function radiation_nextsw_cday
     call pbuf_get_field(pbuf, i_lambda, lambda)
     call pbuf_get_field(pbuf, i_iciwp,  iciwp )
     call pbuf_get_field(pbuf, i_iclwp,  iclwp )
-    call pbuf_get_field(pbuf, i_des,    des   )
-    call pbuf_get_field(pbuf, i_icswp,  icswp )
+    if (i_des > 0)   call pbuf_get_field(pbuf, i_des,    des   )
+    if (i_icswp > 0) call pbuf_get_field(pbuf, i_icswp,  icswp )
 
     call pbuf_get_field(pbuf, qrs_idx,      qrs)
     call pbuf_get_field(pbuf, qrl_idx,      qrl)
@@ -1246,10 +1246,10 @@ end function radiation_nextsw_cday
        call outfld('LAMBDAC_rad',  lambda,    pcols, lchnk)
        call outfld('ICIWP_rad',    iciwp,     pcols, lchnk)
        call outfld('ICLWP_rad',    iclwp,     pcols, lchnk)
-       call outfld('DES_rad',      des,       pcols, lchnk)
-       call outfld('ICSWP_rad',    icswp,     pcols, lchnk)
+       if (i_des > 0)   call outfld('DES_rad',   des,   pcols, lchnk)
+       if (i_icswp > 0) call outfld('ICSWP_rad', icswp, pcols, lchnk)
        call outfld('CLD_rad',      cld,       pcols, lchnk)
-       call outfld('CLDFSNOW_rad', cldfsnow,  pcols, lchnk)
+       if (cldfsnow_idx > 0) call outfld('CLDFSNOW_rad', cldfsnow, pcols, lchnk)
        call outfld('CONCLD_rad',   concld,    pcols, lchnk)
 
        ! construct an RRTMG state object
@@ -1769,14 +1769,22 @@ end function radiation_nextsw_cday
     ! clear-sky heating rates to radheat_tend
     call phys_getopts(no_cloud_lw_radheat_atm_out=no_cloud_lw_radheat_atm)
     call phys_getopts(no_cloud_sw_radheat_atm_out=no_cloud_sw_radheat_atm)
-    if (no_cloud_lw_radheat_atm) then
-       qrl = qrlc
+    if (no_cloud_lw_radheat_atm .and. dolw) then
+       do k = 1, pver
+          do i = 1, ncol
+             qrl(i,k) = qrlc(i,k)
+          end do
+       end do
     end if
-    if (no_cloud_sw_radheat_atm) then
-       qrs = qrsc
+    if (no_cloud_sw_radheat_atm .and. dosw) then
+       do k = 1, pver
+          do i = 1, ncol
+             qrs(i,k) = qrsc(i,k)
+          end do
+       end do
     end if
 
-    if (has_presc_cre) then
+    if (has_presc_cre .and. (dosw .or. dolw)) then
        do k = 1, pver
           do i = 1, ncol
              qrs(i,k) = (cpair * qrs_cld(i,k)) + qrsc(i,k)

@@ -891,7 +891,6 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
     ! Prescribed tracers
     call prescribed_ozone_init()
     call prescribed_cloud_init(phys_state, pbuf2d)
-    call presc_sfc_flux_init()
     call presc_radheat_init()
     call presc_cre_init()
     call prescribed_ghg_init()
