@@ -1825,14 +1825,14 @@ end function radiation_nextsw_cday
     !      clear-sky heating rates to radheat_tend
     call phys_getopts(no_cloud_lw_radheat_atm_out=no_cloud_lw_radheat_atm)
     call phys_getopts(no_cloud_sw_radheat_atm_out=no_cloud_sw_radheat_atm)
-    if (no_cloud_lw_radheat_atm) then
+    if (no_cloud_lw_radheat_atm .and. dolw) then
        qrl = qrlc
     end if
-    if (no_cloud_sw_radheat_atm) then
+    if (no_cloud_sw_radheat_atm .and. dosw) then
        qrs = qrsc
     end if
 
-    if (has_presc_cre) then
+    if (has_presc_cre .and. (dosw .or. dolw)) then
        do k = 1, pver
           do i = 1, ncol
              qrs(i,k) = (cpair * qrs_cld(i,k)) + qrsc(i,k)
