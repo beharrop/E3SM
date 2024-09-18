@@ -497,18 +497,6 @@ contains
           datatp = obj%times(i+1)
        endif
 
-       if ( model_time_temp .lt. datatm ) then
-          write(iulog,*) 'The weights, and times, and indexes are '
-          write(iulog,*) obj%wghts(1), obj%wghts(2), model_time, &
-                obj%times(obj%indxs(1)), obj%times(obj%indxs(2)), &
-                obj%indxs(1), obj%indxs(2), model_time_temp, offset_time, &
-                datatm, datatp, obj%total_time
-          errmsg = 'input_data_utils::set_wghts_indices_cyclical cannot not find model time in: '&
-                 // trim(obj%filename)
-          write(iulog,*) trim(errmsg)
-          call endrun(trim(errmsg))
-       endif
-
        if ( model_time_temp .ge. datatm .and. model_time_temp .le. datatp ) then
           index = i
           obj%indxs(1) = i
@@ -532,7 +520,8 @@ contains
 
     if (obj%time_interp) then
        if (obj%indxs(2) < obj%indxs(1)) then
-          obj%wghts(2) = ( model_time_temp - obj%times(obj%indxs(1)) ) / &
+          obj%wghts(2) = max( model_time_temp - obj%times(obj%indxs(1)), &
+               obj%times(obj%indxs(2)) - model_time_temp ) / &
                ( obj%times(obj%indxs(2)) + obj%total_time - obj%times(obj%indxs(1)) )
        else
           obj%wghts(2) = ( model_time_temp - obj%times(index) ) / ( obj%times(index+1) - obj%times(index) )
