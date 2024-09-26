@@ -647,12 +647,6 @@ subroutine advance_native_grid_data( native_grid_strct )
             native_grid_strct%time_coord%wghts(2) * (native_grid_strct%native_grid_flds_tslices(:,:,:,2) - &
             native_grid_strct%native_grid_flds_tslices(:,:,:,1))
     endif
-
-!++BEH a test for zeros, write out useful stuff
-    if ( all(native_grid_strct%native_grid_flds(:,:,:) .eq. 0.0_r8) ) then
-       call endrun(trim(spc_name) // ' is all zeros.  Oh no!'//errmsg(__FILE__,__LINE__))
-    endif
-!--BEH
     
 end subroutine advance_native_grid_data
 
